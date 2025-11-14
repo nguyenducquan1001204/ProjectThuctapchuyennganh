@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+*.blade.php diff=html linguist-detectable=true
+*.css diff=css
+*.html diff=html linguist-vendored
+*.md diff=markdown
+*.php diff=php linguist-detectable=true
+
+# Loại trừ thư mục public/ khỏi việc tính toán ngôn ngữ
+/public/* linguist-vendored
+/public/** linguist-vendored
+
+# Loại trừ các thư mục khác không cần tính toán
+/vendor/* linguist-vendored
+/node_modules/* linguist-vendored
+
+/.github export-ignore
+CHANGELOG.md export-ignore
+.styleci.yml export-ignore
