@@ -88,3 +88,4 @@ INSERT INTO `payrollcomponent` (
 ('BHTN đơn vị 1%', 'Đóng góp đơn vị', 'Phần trăm',
  'Khoản bảo hiểm thất nghiệp 1% do đơn vị/NSNN đóng trên quỹ lương làm căn cứ BHTN.');
 
+
