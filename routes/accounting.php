@@ -18,3 +18,4 @@ Route::prefix('accounting')->name('accounting.')->middleware(['auth', 'role:acco
     // Thêm các routes accounting khác ở đây
 });
 
+

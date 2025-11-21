@@ -63,3 +63,4 @@ class AdminMenuItem extends Model
             ->get();
     }
 }
+

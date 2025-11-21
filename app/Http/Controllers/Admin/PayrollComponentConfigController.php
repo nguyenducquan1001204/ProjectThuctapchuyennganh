@@ -285,3 +285,4 @@ class PayrollComponentConfigController extends Controller
     }
 }
 
+

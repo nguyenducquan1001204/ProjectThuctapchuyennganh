@@ -191,3 +191,4 @@ class EmploymentContractController extends Controller
             ->with('success', 'Xóa hợp đồng thành công!');
     }
 }
+
