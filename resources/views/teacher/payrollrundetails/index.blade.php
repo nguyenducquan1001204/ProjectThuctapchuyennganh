@@ -144,7 +144,7 @@ function formatPayrollPeriod($period) {
                                             -
                                         @endif
                                     </td>
-                                    <td class="text-start">
+                                    <td class="text-center">
                                         <div class="btn-group payrollrundetail-actions" role="group">
                                             <a href="#"
                                                class="btn btn-warning btn-sm rounded-pill me-1 text-white view-payrollrundetail-btn"

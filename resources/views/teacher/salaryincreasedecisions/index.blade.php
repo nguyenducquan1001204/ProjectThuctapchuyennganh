@@ -103,7 +103,7 @@
                                 <th class="text-center">Hệ số mới</th>
                                 <th class="text-center">Chênh lệch</th>
                                 <th class="description-column">Ghi chú</th>
-                                <th class="text-end" style="padding-right: 50px !important;">Thao tác</th>
+                                <th class="text-center">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -132,7 +132,7 @@
                                             -
                                         @endif
                                     </td>
-                                    <td class="text-end">
+                                    <td class="text-center">
                                         <div class="btn-group salaryincreasedecision-actions" role="group">
                                             <a href="#"
                                                class="btn btn-warning btn-sm rounded-pill me-1 text-white view-salaryincreasedecision-btn"
