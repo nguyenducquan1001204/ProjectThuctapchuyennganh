@@ -60,8 +60,22 @@ class PayrollComponentController extends Controller
                 // cho phép chữ, số, khoảng trắng, và một số ký tự: , . - ( ) %
                 'regex:/^[\p{L}\p{N}\s,.\-%()]+$/u',
                 function ($attribute, $value, $fail) {
+                    // Kiểm tra nhiều khoảng trắng liên tiếp
                     if (preg_match('/\s{2,}/', $value)) {
                         $fail('Tên thành phần lương không được có nhiều khoảng trắng liên tiếp');
+                        return;
+                    }
+
+                    // Loại bỏ khoảng trắng đầu cuối để kiểm tra
+                    $trimmed = trim($value);
+                    $words = preg_split('/\s+/', $trimmed);
+                    
+                    // Kiểm tra mỗi từ phải có ít nhất 2 ký tự
+                    foreach ($words as $word) {
+                        if (mb_strlen($word) < 2) {
+                            $fail('Mỗi từ trong tên thành phần lương phải có ít nhất 2 ký tự');
+                            return;
+                        }
                     }
                 },
             ],

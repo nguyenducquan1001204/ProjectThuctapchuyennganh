@@ -5,18 +5,25 @@
 @section('content')
 <!-- Success Notification Modal -->
 @if (session('success'))
-    <div class="modal fade teacher-modal modal-success" id="successNotificationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade notification-modal modal-success" id="successNotificationModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header text-white">
-                    <h5 class="modal-title">Thành công</h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle me-2"></i>Thành công
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p>{{ session('success') }}</p>
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    <p class="mb-0">{{ session('success') }}</p>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                        <i class="fas fa-check me-1"></i>Đồng ý
+                    </button>
                 </div>
             </div>
         </div>
@@ -25,22 +32,29 @@
 
 <!-- Error Notification Modal -->
 @if ($errors->any())
-    <div class="modal fade teacher-modal modal-error" id="errorNotificationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade notification-modal modal-error" id="errorNotificationModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header text-white">
-                    <h5 class="modal-title">Đã có lỗi xảy ra</h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-circle me-2"></i>Đã có lỗi xảy ra
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <ul class="mb-0">
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-exclamation-circle text-danger" style="font-size: 3rem;"></i>
+                    </div>
+                    <ul class="mb-0 text-start">
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
                     </ul>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">OK</button>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Đóng
+                    </button>
                 </div>
             </div>
         </div>
@@ -140,10 +154,10 @@
                             <tr>
                                 <th>Mã giáo viên</th>
                                 <th>Họ và tên</th>
-                                <th>Ngày sinh</th>
                                 <th>Giới tính</th>
                                 <th>Chức danh</th>
                                 <th>Đơn vị</th>
+                                <th>Hệ số lương</th>
                                 <th>Ngày bắt đầu làm việc</th>
                                 <th>Trạng thái</th>
                                 <th class="text-end" style="padding-right: 50px !important;">Thao tác</th>
@@ -154,7 +168,6 @@
                                 <tr>
                                     <td class="text-end" style="padding-right: 60px !important;">{{ $teacher->teacherid }}</td>
                                     <td>{{ $teacher->fullname }}</td>
-                                    <td>{{ $teacher->birthdate ? \Illuminate\Support\Carbon::parse($teacher->birthdate)->format('d/m/Y') : '-' }}</td>
                                     <td>
                                         @if($teacher->gender == 'male')
                                             Nam
@@ -168,6 +181,13 @@
                                     </td>
                                     <td>{{ $teacher->jobTitle ? $teacher->jobTitle->jobtitlename : '-' }}</td>
                                     <td>{{ $teacher->unit ? $teacher->unit->unitname : '-' }}</td>
+                                    <td class="text-center">
+                                        @if($teacher->currentcoefficient)
+                                            {{ number_format((float)$teacher->currentcoefficient, 2, '.', ',') }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
                                     <td class="text-center">{{ $teacher->startdate ? \Illuminate\Support\Carbon::parse($teacher->startdate)->format('d/m/Y') : '-' }}</td>
                                     <td>
                                         @if($teacher->status == 'active')
@@ -193,9 +213,17 @@
                                                data-teacher-gender="{{ $teacher->gender ?? '' }}"
                                                data-teacher-jobtitle="{{ $teacher->jobTitle ? htmlspecialchars($teacher->jobTitle->jobtitlename, ENT_QUOTES, 'UTF-8') : '-' }}"
                                                data-teacher-unit="{{ $teacher->unit ? htmlspecialchars($teacher->unit->unitname, ENT_QUOTES, 'UTF-8') : '-' }}"
+                                               data-teacher-currentcoefficient="{{ $teacher->currentcoefficient ? number_format((float)$teacher->currentcoefficient, 2, '.', '') : '' }}"
                                                data-teacher-startdate="{{ $teacher->startdate ? \Illuminate\Support\Carbon::parse($teacher->startdate)->format('Y-m-d') : '' }}"
                                                data-teacher-status="{{ $teacher->status }}">
                                                 <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="#" class="btn btn-info btn-sm rounded-pill me-1 text-white view-coefficient-history-btn"
+                                               data-bs-toggle="modal" data-bs-target="#coefficientHistoryModal"
+                                               title="Lịch sử hệ số lương"
+                                               data-teacher-id="{{ $teacher->teacherid }}"
+                                               data-teacher-fullname="{{ htmlspecialchars($teacher->fullname, ENT_QUOTES, 'UTF-8') }}">
+                                                <i class="fas fa-history"></i>
                                             </a>
                                             <a href="#" class="btn btn-success btn-sm rounded-pill me-1 text-white edit-teacher-btn"
                                                data-bs-toggle="modal" data-bs-target="#edit_teacher"
@@ -206,6 +234,7 @@
                                                data-teacher-gender="{{ $teacher->gender ?? '' }}"
                                                data-teacher-jobtitleid="{{ $teacher->jobtitleid ?? '' }}"
                                                data-teacher-unitid="{{ $teacher->unitid ?? '' }}"
+                                               data-teacher-currentcoefficient="{{ $teacher->currentcoefficient ? number_format((float)$teacher->currentcoefficient, 2, '.', '') : '' }}"
                                                data-teacher-startdate="{{ $teacher->startdate ? \Illuminate\Support\Carbon::parse($teacher->startdate)->format('Y-m-d') : '' }}"
                                                data-teacher-status="{{ $teacher->status }}">
                                                 <i class="fas fa-pencil-alt"></i>
@@ -338,6 +367,20 @@
                                 <div class="text-danger small">{{ $message }}</div>
                             @enderror
                         </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Hệ số lương ngạch bậc</label>
+                            <input type="text" name="currentcoefficient" id="create_currentcoefficient" class="form-control"
+                                   value="{{ old('currentcoefficient') }}" 
+                                   placeholder="Ví dụ: 5.70, 5.02, 4.68"
+                                   pattern="[0-9]+(\.[0-9]{1,2})?"
+                                   min="1" max="10"
+                                   step="0.01"
+                                   oninput="this.value = this.value.replace(',', '.').replace(/[^0-9.]/g, ''); if(this.value && (parseFloat(this.value) < 1 || parseFloat(this.value) > 10)) { this.setCustomValidity('Hệ số phải từ 1 đến 10'); } else { this.setCustomValidity(''); }">
+                            <small class="text-muted">Giá trị từ 1 đến 10 (ví dụ: 5.70, 5.02, 4.68)</small>
+                            @error('currentcoefficient')
+                                <div class="text-danger small">{{ $message }}</div>
+                            @enderror
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -390,9 +433,15 @@
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
+                        <label class="form-label">Hệ số lương ngạch bậc</label>
+                        <input type="text" id="view_currentcoefficient" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
                         <label class="form-label">Ngày bắt đầu công tác</label>
                         <input type="text" id="view_startdate" class="form-control" readonly>
                     </div>
+                </div>
+                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Trạng thái</label>
                         <input type="text" id="view_status" class="form-control" readonly>
@@ -503,6 +552,17 @@
                                 <div class="text-danger small">{{ $message }}</div>
                             @enderror
                         </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Hệ số lương ngạch bậc</label>
+                            <input type="text" name="currentcoefficient" id="edit_currentcoefficient" class="form-control"
+                                   placeholder="Ví dụ: 5.70, 5.02, 4.68"
+                                   pattern="[0-9]+(\.[0-9]{1,2})?"
+                                   oninput="this.value = this.value.replace(',', '.').replace(/[^0-9.]/g, ''); if(this.value && (parseFloat(this.value) < 1 || parseFloat(this.value) > 10)) { this.setCustomValidity('Hệ số phải từ 1 đến 10'); } else { this.setCustomValidity(''); }">
+                            <small class="text-muted">Giá trị từ 1 đến 10 (ví dụ: 5.70, 5.02, 4.68)</small>
+                            @error('currentcoefficient')
+                                <div class="text-danger small">{{ $message }}</div>
+                            @enderror
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -527,13 +587,58 @@
                 @method('DELETE')
                 <div class="modal-body">
                     <p>Bạn có chắc chắn muốn xóa giáo viên <strong id="delete_teacher_name"></strong>?</p>
-                    <p class="text-danger small mb-0">Hành động này không thể hoàn tác!</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
                     <button type="submit" class="btn btn-danger">Xóa</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Coefficient History Modal -->
+<div class="modal fade teacher-modal" id="coefficientHistoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header text-white">
+                <h5 class="modal-title">Lịch sử hệ số lương</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6 id="coefficient_history_teacher_name" class="mb-2" style="font-size: 1.1rem; font-weight: 600;"></h6>
+                    <p class="mb-0" style="font-size: 1rem;">Hệ số lương hiện tại: <strong id="coefficient_history_current" class="text-primary" style="font-size: 1.1rem;"></strong></p>
+                </div>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th style="width: 100px; font-size: 1rem; font-weight: 600;">Hệ số</th>
+                                <th style="width: 120px; font-size: 1rem; font-weight: 600;">Ngày bắt đầu</th>
+                                <th style="width: 120px; font-size: 1rem; font-weight: 600;">Ngày kết thúc</th>
+                                <th style="font-size: 1rem; font-weight: 600;">Ghi chú</th>
+                            </tr>
+                        </thead>
+                        <tbody id="coefficient_history_table_body">
+                            <tr>
+                                <td colspan="4" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Đang tải...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="coefficient_history_empty" class="text-center py-4" style="display: none;">
+                    <i class="fas fa-info-circle text-muted" style="font-size: 2rem;"></i>
+                    <p class="text-muted mt-2 mb-0" style="font-size: 1rem;">Chưa có lịch sử thay đổi hệ số lương</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
         </div>
     </div>
 </div>
@@ -694,6 +799,122 @@
     .teacher-table td.text-end {
         padding-left: 30px !important;
     }
+
+    /* Coefficient History Modal Styles */
+    #coefficientHistoryModal .table {
+        font-size: 1rem;
+    }
+
+    #coefficientHistoryModal .table tbody td {
+        font-size: 1rem;
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+
+    #coefficientHistoryModal .table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 10;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        padding: 0.75rem;
+    }
+
+    #coefficientHistoryModal .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    #coefficientHistoryModal .badge {
+        font-size: 0.875rem;
+        padding: 0.35em 0.65em;
+    }
+
+    /* Style cho notification modal (thông báo thành công/lỗi) */
+    .notification-modal .modal-content {
+        border: none;
+        border-radius: .9rem;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+    }
+
+    .notification-modal .modal-header {
+        border-bottom: none;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .notification-modal.modal-success .modal-header {
+        background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .notification-modal.modal-error .modal-header {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    .notification-modal .modal-title {
+        font-weight: 600;
+        letter-spacing: 0.01rem;
+        color: #fff;
+        display: flex;
+        align-items: center;
+    }
+
+    .notification-modal .modal-title i {
+        font-size: 1.25rem;
+    }
+
+    .notification-modal .modal-body {
+        background: #f8fafc;
+        padding: 2rem 1.75rem;
+    }
+
+    .notification-modal .modal-body ul {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .notification-modal .modal-footer {
+        background: #f1f5f9;
+        border-top: none;
+        padding: 1rem 1.5rem;
+    }
+
+    .notification-modal.modal-success .modal-footer {
+        background: #ecfdf5;
+    }
+
+    .notification-modal.modal-error .modal-footer {
+        background: #fef2f2;
+    }
+
+    .notification-modal .btn {
+        border-radius: 999px;
+        padding-inline: 1.5rem;
+        font-weight: 500;
+        min-width: 120px;
+    }
+
+    .notification-modal.modal-success .btn-success {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+    }
+
+    .notification-modal.modal-success .btn-success:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .notification-modal.modal-error .btn-danger {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border: none;
+    }
+
+    .notification-modal.modal-error .btn-danger:hover {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
 </style>
 @endsection
 
@@ -784,6 +1005,9 @@
             document.getElementById('view_jobtitle').value = btn.dataset.teacherJobtitle || '-';
             document.getElementById('view_unit').value = btn.dataset.teacherUnit || '-';
             
+            const currentcoefficient = btn.dataset.teacherCurrentcoefficient || '';
+            document.getElementById('view_currentcoefficient').value = currentcoefficient ? parseFloat(currentcoefficient).toFixed(2) : '-';
+            
             const startdate = btn.dataset.teacherStartdate;
             if (startdate) {
                 const date = new Date(startdate);
@@ -824,6 +1048,8 @@
             document.getElementById('edit_gender').value = btn.dataset.teacherGender || '';
             document.getElementById('edit_jobtitleid').value = btn.dataset.teacherJobtitleid || '';
             document.getElementById('edit_unitid').value = btn.dataset.teacherUnitid || '';
+            const currentCoeff = btn.dataset.teacherCurrentcoefficient || '';
+            document.getElementById('edit_currentcoefficient').value = currentCoeff ? parseFloat(currentCoeff).toFixed(2) : '';
             document.getElementById('edit_startdate').value = btn.dataset.teacherStartdate || '';
             document.getElementById('edit_status').value = btn.dataset.teacherStatus || 'active';
         }
@@ -837,6 +1063,106 @@
             const form = document.getElementById('deleteTeacherForm');
             form.action = '{{ route("admin.teacher.destroy", ":id") }}'.replace(':id', teacherId);
             document.getElementById('delete_teacher_name').textContent = btn.dataset.teacherFullname || 'này';
+        }
+    });
+
+    // Coefficient History button handler
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.view-coefficient-history-btn')) {
+            const btn = e.target.closest('.view-coefficient-history-btn');
+            const teacherId = btn.dataset.teacherId;
+            const teacherName = btn.dataset.teacherFullname || '';
+            
+            // Set teacher name
+            document.getElementById('coefficient_history_teacher_name').textContent = teacherName;
+            
+            // Show loading state
+            document.getElementById('coefficient_history_table_body').innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('coefficient_history_empty').style.display = 'none';
+            document.getElementById('coefficient_history_table_body').style.display = '';
+            
+            // Load history via AJAX
+            fetch(`{{ route('admin.teacher.coefficient-history', ':id') }}`.replace(':id', teacherId), {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const history = data.history || [];
+                    const currentCoeff = data.teacher.currentcoefficient;
+                    
+                    // Set current coefficient
+                    document.getElementById('coefficient_history_current').textContent = currentCoeff ? parseFloat(currentCoeff).toFixed(2) : '-';
+                    
+                    if (history.length === 0) {
+                        // Show empty state
+                        document.getElementById('coefficient_history_table_body').style.display = 'none';
+                        document.getElementById('coefficient_history_empty').style.display = 'block';
+                    } else {
+                        // Build table rows
+                        let html = '';
+                        history.forEach((record, index) => {
+                            const effectivedate = record.effectivedate ? new Date(record.effectivedate).toLocaleDateString('vi-VN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                            }) : '-';
+                            
+                            const expiredate = record.expiredate ? new Date(record.expiredate).toLocaleDateString('vi-VN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                            }) : (index === history.length - 1 ? '<span class="badge bg-success">Đang áp dụng</span>' : '-');
+                            
+                            const coefficient = record.coefficient ? parseFloat(record.coefficient).toFixed(2) : '-';
+                            const note = record.note || '-';
+                            
+                            html += `
+                                <tr>
+                                    <td class="text-center"><strong>${coefficient}</strong></td>
+                                    <td>${effectivedate}</td>
+                                    <td>${expiredate}</td>
+                                    <td>${note}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        document.getElementById('coefficient_history_table_body').innerHTML = html;
+                        document.getElementById('coefficient_history_empty').style.display = 'none';
+                        document.getElementById('coefficient_history_table_body').style.display = '';
+                    }
+                } else {
+                    document.getElementById('coefficient_history_table_body').innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-danger">
+                                <i class="fas fa-exclamation-circle"></i> Có lỗi xảy ra khi tải dữ liệu
+                            </td>
+                        </tr>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('coefficient_history_table_body').innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-danger">
+                            <i class="fas fa-exclamation-circle"></i> Có lỗi xảy ra khi tải dữ liệu
+                        </td>
+                    </tr>
+                `;
+            });
         }
     });
 

@@ -5,18 +5,25 @@
 @section('content')
 <!-- Success Notification Modal -->
 @if (session('success'))
-    <div class="modal fade payrollcomponentconfig-modal modal-success" id="successNotificationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade notification-modal modal-success" id="successNotificationModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header text-white">
-                    <h5 class="modal-title">Thành công</h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle me-2"></i>Thành công
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p>{{ session('success') }}</p>
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    <p class="mb-0">{{ session('success') }}</p>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                        <i class="fas fa-check me-1"></i>Đồng ý
+                    </button>
                 </div>
             </div>
         </div>
@@ -25,22 +32,29 @@
 
 <!-- Error Notification Modal -->
 @if ($errors->any())
-    <div class="modal fade payrollcomponentconfig-modal modal-error" id="errorNotificationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade notification-modal modal-error" id="errorNotificationModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header text-white">
-                    <h5 class="modal-title">Đã có lỗi xảy ra</h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-circle me-2"></i>Đã có lỗi xảy ra
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <ul class="mb-0">
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-exclamation-circle text-danger" style="font-size: 3rem;"></i>
+                    </div>
+                    <ul class="mb-0 text-start">
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
                     </ul>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">OK</button>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Đóng
+                    </button>
                 </div>
             </div>
         </div>
@@ -267,7 +281,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Ngày hiệu lực <span class="text-danger">*</span></label>
-                                <input type="date" name="effectivedate" id="create_effectivedate" class="form-control" required value="{{ old('effectivedate') }}">
+                                <input type="date" name="effectivedate" id="create_effectivedate" class="form-control" required value="{{ old('effectivedate') }}" onchange="validateExpirationDate('create');">
                                 @error('effectivedate')
                                     <div class="text-danger small">{{ $message }}</div>
                                 @enderror
@@ -276,7 +290,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Ngày hết hạn</label>
-                                <input type="date" name="expirationdate" id="create_expirationdate" class="form-control" value="{{ old('expirationdate') }}">
+                                <input type="date" name="expirationdate" id="create_expirationdate" class="form-control" value="{{ old('expirationdate') }}" onchange="validateExpirationDate('create');">
                                 @error('expirationdate')
                                     <div class="text-danger small">{{ $message }}</div>
                                 @enderror
@@ -398,7 +412,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Ngày hiệu lực <span class="text-danger">*</span></label>
-                                <input type="date" name="effectivedate" id="edit_effectivedate" class="form-control" required>
+                                <input type="date" name="effectivedate" id="edit_effectivedate" class="form-control" required onchange="validateExpirationDate('edit');">
                                 @error('effectivedate')
                                     <div class="text-danger small">{{ $message }}</div>
                                 @enderror
@@ -407,7 +421,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Ngày hết hạn</label>
-                                <input type="date" name="expirationdate" id="edit_expirationdate" class="form-control">
+                                <input type="date" name="expirationdate" id="edit_expirationdate" class="form-control" onchange="validateExpirationDate('edit');">
                                 @error('expirationdate')
                                     <div class="text-danger small">{{ $message }}</div>
                                 @enderror
@@ -586,6 +600,92 @@
     .payrollcomponentconfig-modal.modal-delete .modal-footer {
         background: #fef2f2;
     }
+
+    /* Style cho notification modal (thông báo thành công/lỗi) */
+    .notification-modal .modal-content {
+        border: none;
+        border-radius: .9rem;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+    }
+
+    .notification-modal .modal-header {
+        border-bottom: none;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .notification-modal.modal-success .modal-header {
+        background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .notification-modal.modal-error .modal-header {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    .notification-modal .modal-title {
+        font-weight: 600;
+        letter-spacing: 0.01rem;
+        color: #fff;
+        display: flex;
+        align-items: center;
+    }
+
+    .notification-modal .modal-title i {
+        font-size: 1.25rem;
+    }
+
+    .notification-modal .modal-body {
+        background: #f8fafc;
+        padding: 2rem 1.75rem;
+    }
+
+    .notification-modal .modal-body ul {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .notification-modal .modal-footer {
+        background: #f1f5f9;
+        border-top: none;
+        padding: 1rem 1.5rem;
+    }
+
+    .notification-modal.modal-success .modal-footer {
+        background: #ecfdf5;
+    }
+
+    .notification-modal.modal-error .modal-footer {
+        background: #fef2f2;
+    }
+
+    .notification-modal .btn {
+        border-radius: 999px;
+        padding-inline: 1.5rem;
+        font-weight: 500;
+        min-width: 120px;
+    }
+
+    .notification-modal.modal-success .btn-success {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+    }
+
+    .notification-modal.modal-success .btn-success:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .notification-modal.modal-error .btn-danger {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border: none;
+    }
+
+    .notification-modal.modal-error .btn-danger:hover {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
 </style>
 @endpush
 
@@ -598,7 +698,7 @@
         const effectiveDateInput = document.getElementById(formType + '_effectivedate');
         const expirationDateInput = document.getElementById(formType + '_expirationdate');
         
-        if (!effectiveDateInput || !expirationDateInput) return;
+        if (!effectiveDateInput || !expirationDateInput) return false;
         
         const effectiveDate = effectiveDateInput.value;
         const expirationDate = expirationDateInput.value;
@@ -620,14 +720,18 @@
                     errorEl.textContent = 'Ngày hết hạn phải sau ngày hiệu lực';
                     expirationDateInput.parentElement.appendChild(errorEl);
                 }
+                return false;
             } else {
                 expirationDateInput.classList.add('is-valid');
                 const errorDiv = expirationDateInput.parentElement.querySelector('.expiration-date-error');
                 if (errorDiv) {
                     errorDiv.remove();
                 }
+                return true;
             }
         }
+        
+        return true; // Nếu không có ngày hết hạn hoặc ngày hiệu lực, coi như hợp lệ
     }
 
     // Hàm cập nhật hiển thị trường giá trị theo calculationmethod
@@ -702,33 +806,6 @@
             updateValueFields('create', createComponentSelect.value);
         }
 
-        // Thêm validation cho ngày hết hạn (form create)
-        const createEffectiveDate = document.getElementById('create_effectivedate');
-        const createExpirationDate = document.getElementById('create_expirationdate');
-        if (createEffectiveDate) {
-            createEffectiveDate.addEventListener('change', function() {
-                validateExpirationDate('create');
-            });
-        }
-        if (createExpirationDate) {
-            createExpirationDate.addEventListener('change', function() {
-                validateExpirationDate('create');
-            });
-        }
-
-        // Thêm validation cho ngày hết hạn (form edit)
-        const editEffectiveDate = document.getElementById('edit_effectivedate');
-        const editExpirationDate = document.getElementById('edit_expirationdate');
-        if (editEffectiveDate) {
-            editEffectiveDate.addEventListener('change', function() {
-                validateExpirationDate('edit');
-            });
-        }
-        if (editExpirationDate) {
-            editExpirationDate.addEventListener('change', function() {
-                validateExpirationDate('edit');
-            });
-        }
 
         // View button handler
         document.addEventListener('click', function (e) {
@@ -808,6 +885,28 @@
                 document.getElementById('delete_component_name').textContent = btn.dataset.componentName || 'này';
             }
         });
+
+        // Validate trước khi submit form Create
+        const createForm = document.getElementById('createPayrollComponentConfigForm');
+        if (createForm) {
+            createForm.addEventListener('submit', function(e) {
+                if (!validateExpirationDate('create')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        }
+
+        // Validate trước khi submit form Edit
+        const editForm = document.getElementById('editPayrollComponentConfigForm');
+        if (editForm) {
+            editForm.addEventListener('submit', function(e) {
+                if (!validateExpirationDate('edit')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        }
     });
 </script>
 @endpush

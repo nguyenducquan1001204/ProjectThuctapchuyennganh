@@ -120,7 +120,7 @@
                 <div id="sidebar-menu" class="sidebar-menu">
                     <ul>
                         <li class="menu-title">
-                            <span>Khu vực Giáo viên</span>
+                            <span>Bảng điều khiển</span>
                         </li>
                         @include('teacher.partials.menu')
                     </ul>

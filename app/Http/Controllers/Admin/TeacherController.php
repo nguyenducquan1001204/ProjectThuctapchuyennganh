@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class TeacherController extends Controller
 {
@@ -111,6 +112,13 @@ class TeacherController extends Controller
                 'nullable',
                 'date',
             ],
+            'currentcoefficient' => [
+                'nullable',
+                'numeric',
+                'min:1',
+                'max:10',
+                'regex:/^\d{1,2}(\.\d{1,2})?$/', // Định dạng: 1-10, có thể có 1-2 chữ số thập phân
+            ],
             'status' => [
                 'required',
                 Rule::in(['active', 'suspended', 'onleave', 'contractended']),
@@ -136,6 +144,10 @@ class TeacherController extends Controller
             'unitid.integer' => 'Đơn vị không hợp lệ',
             'unitid.exists' => 'Đơn vị không tồn tại',
             'startdate.date' => 'Ngày bắt đầu công tác không hợp lệ',
+            'currentcoefficient.numeric' => 'Hệ số lương ngạch bậc phải là số',
+            'currentcoefficient.min' => 'Hệ số lương ngạch bậc không được nhỏ hơn 1',
+            'currentcoefficient.max' => 'Hệ số lương ngạch bậc không được lớn hơn 10',
+            'currentcoefficient.regex' => 'Hệ số lương ngạch bậc không hợp lệ (ví dụ: 5.70, 5.02, 4.68)',
             'status.required' => 'Trạng thái là bắt buộc',
             'status.in' => 'Trạng thái không hợp lệ',
         ];
@@ -153,6 +165,7 @@ class TeacherController extends Controller
             'jobtitleid' => $request->jobtitleid ? (int)$request->jobtitleid : null,
             'unitid' => $request->unitid ? (int)$request->unitid : null,
             'startdate' => $request->startdate ? $request->startdate : null,
+            'currentcoefficient' => $request->currentcoefficient ? (float)$request->currentcoefficient : null,
             'status' => $request->status ?? 'active',
         ]);
 
@@ -160,7 +173,22 @@ class TeacherController extends Controller
 
         $validated = $validator->validate();
 
+        $newCoefficient = $validated['currentcoefficient'] ?? null;
+
         $teacher = Teacher::create($validated);
+
+        // Nếu có hệ số lương khi tạo mới, tự động ghi lịch sử
+        if ($newCoefficient !== null) {
+            $history = [[
+                'coefficient' => (float)$newCoefficient,
+                'effectivedate' => $teacher->startdate ? Carbon::parse($teacher->startdate)->format('Y-m-d') : Carbon::today()->format('Y-m-d'),
+                'expiredate' => null,
+                'note' => 'Hệ số lương ban đầu',
+            ]];
+            
+            $teacher->coefficient_history = $history;
+            $teacher->save();
+        }
 
         // Nếu có chức danh khi tạo mới, tự động ghi lịch sử
         if ($teacher->jobtitleid !== null) {
@@ -187,8 +215,9 @@ class TeacherController extends Controller
     {
         $teacher = Teacher::findOrFail($id);
         
-        // Lưu jobtitleid cũ để so sánh
+        // Lưu các giá trị cũ để so sánh
         $oldJobTitleId = $teacher->jobtitleid;
+        $oldCoefficient = $teacher->currentcoefficient;
 
         $request->merge([
             'fullname' => trim($request->fullname),
@@ -197,6 +226,7 @@ class TeacherController extends Controller
             'jobtitleid' => $request->jobtitleid ? (int)$request->jobtitleid : null,
             'unitid' => $request->unitid ? (int)$request->unitid : null,
             'startdate' => $request->startdate ? $request->startdate : null,
+            'currentcoefficient' => $request->currentcoefficient ? (float)$request->currentcoefficient : null,
             'status' => $request->status ?? 'active',
         ]);
 
@@ -209,8 +239,48 @@ class TeacherController extends Controller
         $validated = $validator->validate();
         
         $newJobTitleId = $validated['jobtitleid'] ?? null;
+        $newCoefficient = $validated['currentcoefficient'] ?? null;
+
+        // Kiểm tra hệ số lương có thay đổi không
+        $coefficientChanged = false;
+        if ($oldCoefficient != $newCoefficient && $newCoefficient !== null) {
+            $coefficientChanged = true;
+        }
 
         $teacher->update($validated);
+
+        // Nếu hệ số lương thay đổi, tự động ghi lịch sử
+        if ($coefficientChanged) {
+            $note = '';
+            if ($oldCoefficient !== null) {
+                $note = "Thay đổi từ {$oldCoefficient} sang {$newCoefficient}";
+            } else {
+                $note = "Hệ số lương ban đầu: {$newCoefficient}";
+            }
+
+            // Thêm vào lịch sử
+            $history = $teacher->coefficient_history ?? [];
+            
+            // Đóng bản ghi cũ (nếu có)
+            if (!empty($history)) {
+                foreach ($history as &$record) {
+                    if (!isset($record['expiredate']) || $record['expiredate'] === null) {
+                        $record['expiredate'] = Carbon::today()->subDay()->format('Y-m-d');
+                    }
+                }
+            }
+
+            // Thêm bản ghi mới
+            $history[] = [
+                'coefficient' => (float)$newCoefficient,
+                'effectivedate' => Carbon::today()->format('Y-m-d'),
+                'expiredate' => null,
+                'note' => $note,
+            ];
+
+            $teacher->coefficient_history = $history;
+            $teacher->save();
+        }
 
         // Nếu chức danh thay đổi, tự động ghi lịch sử
         if ($oldJobTitleId != $newJobTitleId && $newJobTitleId !== null) {
@@ -263,6 +333,25 @@ class TeacherController extends Controller
 
         return redirect()->route('admin.teacher.index')
             ->with('success', 'Xóa giáo viên thành công!');
+    }
+
+    /**
+     * Lấy lịch sử hệ số lương của giáo viên (API)
+     */
+    public function getCoefficientHistory($id)
+    {
+        $teacher = Teacher::findOrFail($id);
+        $history = $teacher->getCoefficientHistory();
+        
+        return response()->json([
+            'success' => true,
+            'teacher' => [
+                'id' => $teacher->teacherid,
+                'fullname' => $teacher->fullname,
+                'currentcoefficient' => $teacher->currentcoefficient,
+            ],
+            'history' => $history,
+        ]);
     }
 }
 

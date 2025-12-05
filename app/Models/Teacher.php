@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Teacher extends Model
 {
@@ -19,6 +20,8 @@ class Teacher extends Model
         'jobtitleid',
         'unitid',
         'startdate',
+        'currentcoefficient',
+        'coefficient_history',
         'status',
     ];
 
@@ -28,6 +31,8 @@ class Teacher extends Model
         'unitid' => 'integer',
         'birthdate' => 'date',
         'startdate' => 'date',
+        'currentcoefficient' => 'decimal:2',
+        'coefficient_history' => 'array',
     ];
 
     /**
@@ -45,5 +50,40 @@ class Teacher extends Model
     {
         return $this->belongsTo(BudgetSpendingUnit::class, 'unitid', 'unitid');
     }
-}
 
+    /**
+     * Thêm bản ghi lịch sử hệ số lương
+     */
+    public function addCoefficientHistory($coefficient, $effectivedate = null, $expiredate = null, $note = null)
+    {
+        $history = $this->coefficient_history ?? [];
+        
+        // Đóng bản ghi cũ (nếu có) bằng cách set expiredate
+        if (!empty($history)) {
+            foreach ($history as &$record) {
+                if (!isset($record['expiredate']) || $record['expiredate'] === null) {
+                    $record['expiredate'] = $expiredate ?: (date('Y-m-d', strtotime(($effectivedate ?: Carbon::today()->format('Y-m-d')) . ' -1 day')));
+                }
+            }
+        }
+
+        // Thêm bản ghi mới
+        $history[] = [
+            'coefficient' => (float)$coefficient,
+            'effectivedate' => $effectivedate ?: Carbon::today()->format('Y-m-d'),
+            'expiredate' => $expiredate,
+            'note' => $note,
+        ];
+
+        $this->coefficient_history = $history;
+        $this->save();
+    }
+
+    /**
+     * Lấy lịch sử hệ số lương
+     */
+    public function getCoefficientHistory()
+    {
+        return $this->coefficient_history ?? [];
+    }
+}

@@ -120,7 +120,7 @@
                 <div id="sidebar-menu" class="sidebar-menu">
                     <ul>
                         <li class="menu-title">
-                            <span>Khu vực Kế toán</span>
+                            <span>Bảng điều khiển</span>
                         </li>
                         @include('accounting.partials.menu')
                     </ul>
