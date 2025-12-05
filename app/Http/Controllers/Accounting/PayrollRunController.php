@@ -85,7 +85,7 @@ class PayrollRunController extends Controller
             ],
             'status' => [
                 'required',
-                'in:draft,calculating,approved,paid',
+                'in:draft,approved',
             ],
             'note' => 'nullable|string|max:65535',
         ];
@@ -178,6 +178,12 @@ class PayrollRunController extends Controller
     public function update(Request $request, $id)
     {
         $payrollRun = PayrollRun::findOrFail($id);
+
+        // Kiểm tra: Không cho phép chỉnh sửa nếu đã chốt
+        if ($payrollRun->status === 'approved') {
+            return redirect()->route('accounting.payrollrun.index')
+                ->with('error', 'Không thể chỉnh sửa bảng lương đã chốt!');
+        }
 
         $validator = Validator::make(
             $request->all(),
@@ -342,14 +348,11 @@ class PayrollRunController extends Controller
     {
         $payrollRun = PayrollRun::with(['unit', 'baseSalary'])->findOrFail($id);
 
-        // Kiểm tra trạng thái: chỉ cho phép tính nếu ở trạng thái 'draft' hoặc 'calculating'
-        if (!in_array($payrollRun->status, ['draft', 'calculating'])) {
+        // Kiểm tra trạng thái: chỉ cho phép tính nếu ở trạng thái 'draft'
+        if ($payrollRun->status !== 'draft') {
             return redirect()->route('accounting.payrollrun.index')
-                ->with('error', 'Chỉ có thể tính lương cho bảng lương ở trạng thái "Khởi tạo" hoặc "Đang tính toán"!');
+                ->with('error', 'Chỉ có thể tính lương cho bảng lương ở trạng thái "Khởi tạo"!');
         }
-
-        // Cập nhật trạng thái thành 'calculating'
-        $payrollRun->update(['status' => 'calculating']);
 
         try {
             DB::beginTransaction();
@@ -410,8 +413,11 @@ class PayrollRunController extends Controller
                 }
             }
 
-            // Cập nhật trạng thái về 'draft' sau khi tính xong
-            $payrollRun->update(['status' => 'draft']);
+            // Cập nhật trạng thái về 'approved' (đã chốt) sau khi tính xong
+            $payrollRun->update([
+                'status' => 'approved',
+                'approvedat' => Carbon::now()
+            ]);
 
             DB::commit();
 

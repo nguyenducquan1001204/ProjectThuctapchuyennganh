@@ -112,9 +112,7 @@
                     <select name="search_status" class="form-control">
                         <option value="">-- Tất cả --</option>
                         <option value="draft" {{ request('search_status') === 'draft' ? 'selected' : '' }}>Khởi tạo</option>
-                        <option value="calculating" {{ request('search_status') === 'calculating' ? 'selected' : '' }}>Đang tính toán</option>
                         <option value="approved" {{ request('search_status') === 'approved' ? 'selected' : '' }}>Đã chốt</option>
-                        <option value="paid" {{ request('search_status') === 'paid' ? 'selected' : '' }}>Đã thanh toán</option>
                     </select>
                 </div>
             </div>
@@ -211,7 +209,7 @@
                                                data-note="{{ htmlspecialchars($payrollRun->note ?? '', ENT_QUOTES, 'UTF-8') }}">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            @if(in_array($payrollRun->status, ['draft', 'calculating']))
+                                            @if($payrollRun->status === 'draft')
                                             <button type="button" 
                                                     class="btn btn-info btn-sm rounded-pill me-1 text-white preview-calculate-btn" 
                                                     title="Xem trước và tính lương tự động"
@@ -219,6 +217,7 @@
                                                 <i class="fas fa-calculator"></i>
                                             </button>
                                             @endif
+                                            @if($payrollRun->status !== 'approved')
                                             <a href="#"
                                                class="btn btn-success btn-sm rounded-pill me-1 text-white edit-payrollrun-btn"
                                                data-bs-toggle="modal" data-bs-target="#edit_payrollrun"
@@ -231,6 +230,7 @@
                                                data-note="{{ htmlspecialchars($payrollRun->note ?? '', ENT_QUOTES, 'UTF-8') }}">
                                                 <i class="fas fa-pencil-alt"></i>
                                             </a>
+                                            @endif
                                             <a href="#"
                                                class="btn btn-danger btn-sm rounded-pill text-white delete-payrollrun-btn"
                                                data-bs-toggle="modal" data-bs-target="#delete_payrollrun"
@@ -303,9 +303,7 @@
                         <label class="form-label">Trạng thái <span class="text-danger">*</span></label>
                         <select name="status" id="create_status" class="form-control" required>
                             <option value="draft" {{ old('status', 'draft') === 'draft' ? 'selected' : '' }}>Khởi tạo</option>
-                            <option value="calculating" {{ old('status') === 'calculating' ? 'selected' : '' }}>Đang tính toán</option>
                             <option value="approved" {{ old('status') === 'approved' ? 'selected' : '' }}>Đã chốt</option>
-                            <option value="paid" {{ old('status') === 'paid' ? 'selected' : '' }}>Đã thanh toán</option>
                         </select>
                         @error('status')
                             <div class="text-danger small">{{ $message }}</div>
@@ -431,9 +429,7 @@
                         <label class="form-label">Trạng thái <span class="text-danger">*</span></label>
                         <select name="status" id="edit_status" class="form-control" required>
                             <option value="draft">Khởi tạo</option>
-                            <option value="calculating">Đang tính toán</option>
                             <option value="approved">Đã chốt</option>
-                            <option value="paid">Đã thanh toán</option>
                         </select>
                         @error('status')
                             <div class="text-danger small">{{ $message }}</div>
@@ -778,9 +774,7 @@
                 const status = btn.dataset.status || '';
                 const statusLabels = {
                     'draft': 'Khởi tạo',
-                    'calculating': 'Đang tính toán',
-                    'approved': 'Đã chốt',
-                    'paid': 'Đã thanh toán'
+                    'approved': 'Đã chốt'
                 };
                 document.getElementById('view_status').value = statusLabels[status] || status;
 

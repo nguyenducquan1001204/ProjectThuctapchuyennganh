@@ -2,6 +2,17 @@
 
 @section('title', 'Thông tin cá nhân')
 
+@php
+function formatPayrollPeriod($period) {
+    if (!$period) return '-';
+    try {
+        return \Carbon\Carbon::createFromFormat('Y-m', $period)->format('m-Y');
+    } catch (\Exception $e) {
+        return $period;
+    }
+}
+@endphp
+
 @section('content')
 <!-- Error Notification Modal -->
 @if (session('error'))
@@ -291,14 +302,14 @@
                                         <tr>
                                             <td>
                                                 @if($detail->payrollRun)
-                                                    #{{ $detail->payrollRun->payrollrunid }} - {{ $detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-' }}
+                                                    {{ $detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-' }} - {{ formatPayrollPeriod($detail->payrollRun->payrollperiod) }}
                                                 @else
                                                     -
                                                 @endif
                                             </td>
                                             <td>
                                                 @if($detail->payrollRun)
-                                                    {{ $detail->payrollRun->payrollperiod }}
+                                                    {{ formatPayrollPeriod($detail->payrollRun->payrollperiod) }}
                                                 @else
                                                     -
                                                 @endif

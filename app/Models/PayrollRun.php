@@ -55,9 +55,7 @@ class PayrollRun extends Model
     {
         return match($this->status) {
             'draft' => 'Khởi tạo',
-            'calculating' => 'Đang tính toán',
             'approved' => 'Đã chốt',
-            'paid' => 'Đã thanh toán',
             default => $this->status,
         };
     }
@@ -69,9 +67,7 @@ class PayrollRun extends Model
     {
         return match($this->status) {
             'draft' => 'bg-secondary',
-            'calculating' => 'bg-info',
             'approved' => 'bg-success',
-            'paid' => 'bg-primary',
             default => 'bg-secondary',
         };
     }

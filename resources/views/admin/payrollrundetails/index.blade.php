@@ -2,6 +2,17 @@
 
 @section('title', 'Quản lý chi tiết bảng lương từng giáo viên')
 
+@php
+function formatPayrollPeriod($period) {
+    if (!$period) return '-';
+    try {
+        return \Carbon\Carbon::createFromFormat('Y-m', $period)->format('m-Y');
+    } catch (\Exception $e) {
+        return $period;
+    }
+}
+@endphp
+
 @section('content')
 <!-- Success Notification Modal -->
 @if (session('success'))
@@ -76,13 +87,6 @@
             </div>
         </div>
     </div>
-    <div class="row mt-3">
-        <div class="col-sm-12">
-            <a href="{{ route('admin.payrollrundetail.export', request()->all()) }}" class="btn btn-success">
-                <i class="fas fa-file-excel me-2"></i>Xuất bảng lương chi tiết
-            </a>
-        </div>
-    </div>
 </div>
 
 <div class="student-group-form mb-4">
@@ -95,7 +99,7 @@
                         <option value="">-- Tất cả --</option>
                         @foreach($allPayrollRuns as $payrollRun)
                             <option value="{{ $payrollRun->payrollrunid }}" {{ (string)request('search_payrollrunid') === (string)$payrollRun->payrollrunid ? 'selected' : '' }}>
-                                #{{ $payrollRun->payrollrunid }} - {{ $payrollRun->unit ? $payrollRun->unit->unitname : '-' }} - {{ $payrollRun->payrollperiod }}
+                                {{ $payrollRun->unit ? $payrollRun->unit->unitname : '-' }} - {{ formatPayrollPeriod($payrollRun->payrollperiod) }}
                             </option>
                         @endforeach
                     </select>
@@ -146,6 +150,11 @@
                         <div class="col">
                             <h3 class="page-title">Danh sách chi tiết bảng lương từng giáo viên</h3>
                         </div>
+                        <div class="col-auto text-end float-end ms-auto download-grp">
+                            <a href="#" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#exportExcelModal">
+                                <i class="fas fa-file-excel me-1"></i> Xuất bảng lương chi tiết
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -169,7 +178,7 @@
                                 <tr>
                                     <td>
                                         @if($detail->payrollRun)
-                                            #{{ $detail->payrollRun->payrollrunid }} - {{ $detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-' }} - {{ $detail->payrollRun->payrollperiod }}
+                                            {{ $detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-' }} - {{ formatPayrollPeriod($detail->payrollRun->payrollperiod) }}
                                         @else
                                             -
                                         @endif
@@ -196,7 +205,7 @@
                                                data-bs-toggle="modal" data-bs-target="#view_payrollrundetail"
                                                title="Xem chi tiết"
                                                data-detail-id="{{ $detail->detailid }}"
-                                               data-payroll-run="{{ $detail->payrollRun ? '#'.$detail->payrollRun->payrollrunid.' - '.($detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-').' - '.$detail->payrollRun->payrollperiod : '-' }}"
+                                               data-payroll-run="{{ $detail->payrollRun ? ($detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-').' - '.formatPayrollPeriod($detail->payrollRun->payrollperiod) : '-' }}"
                                                data-teacher-name="{{ htmlspecialchars($detail->teacher ? $detail->teacher->fullname : '-', ENT_QUOTES, 'UTF-8') }}"
                                                data-total-income="{{ number_format($detail->totalincome, 2, '.', '') }}"
                                                data-total-employee-deductions="{{ number_format($detail->totalemployeedeductions, 2, '.', '') }}"
@@ -348,6 +357,40 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
                     <button type="submit" class="btn btn-danger">Xóa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Export Excel Modal -->
+<div class="modal fade payrollrundetail-modal" id="exportExcelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header text-white">
+                <h5 class="modal-title">Xuất bảng lương chi tiết ra Excel</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('admin.payrollrundetail.export') }}" method="GET" id="exportExcelForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Chọn tháng lương cần xuất <span class="text-danger">*</span></label>
+                        <select name="search_payrollrunid" id="export_payrollrunid" class="form-control" required>
+                            <option value="">-- Chọn tháng lương --</option>
+                            @foreach($allPayrollRuns as $payrollRun)
+                                <option value="{{ $payrollRun->payrollrunid }}">
+                                    {{ $payrollRun->unit ? $payrollRun->unit->unitname : '-' }} - {{ formatPayrollPeriod($payrollRun->payrollperiod) }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted">Vui lòng chọn tháng lương cần xuất ra file Excel</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-file-excel me-1"></i> Xuất Excel
+                    </button>
                 </div>
             </form>
         </div>

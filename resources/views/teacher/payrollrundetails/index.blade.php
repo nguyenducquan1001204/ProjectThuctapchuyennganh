@@ -2,6 +2,17 @@
 
 @section('title', 'Bảng lương chi tiết của tôi')
 
+@php
+function formatPayrollPeriod($period) {
+    if (!$period) return '-';
+    try {
+        return \Carbon\Carbon::createFromFormat('Y-m', $period)->format('m-Y');
+    } catch (\Exception $e) {
+        return $period;
+    }
+}
+@endphp
+
 @section('content')
 <!-- Error Notification Modal -->
 @if ($errors->any() || session('error'))
@@ -114,7 +125,7 @@
                                 <tr>
                                     <td>
                                         @if($detail->payrollRun)
-                                            #{{ $detail->payrollRun->payrollrunid }} - {{ $detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-' }} - {{ $detail->payrollRun->payrollperiod }}
+                                            {{ $detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-' }} - {{ formatPayrollPeriod($detail->payrollRun->payrollperiod) }}
                                         @else
                                             -
                                         @endif
@@ -140,7 +151,7 @@
                                                data-bs-toggle="modal" data-bs-target="#view_payrollrundetail"
                                                title="Xem chi tiết"
                                                data-detail-id="{{ $detail->detailid }}"
-                                               data-payroll-run="{{ $detail->payrollRun ? '#'.$detail->payrollRun->payrollrunid.' - '.($detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-').' - '.$detail->payrollRun->payrollperiod : '-' }}"
+                                               data-payroll-run="{{ $detail->payrollRun ? ($detail->payrollRun->unit ? $detail->payrollRun->unit->unitname : '-').' - '.formatPayrollPeriod($detail->payrollRun->payrollperiod) : '-' }}"
                                                data-total-income="{{ number_format($detail->totalincome, 2, '.', '') }}"
                                                data-total-employee-deductions="{{ number_format($detail->totalemployeedeductions, 2, '.', '') }}"
                                                data-total-employer-contributions="{{ number_format($detail->totalemployercontributions, 2, '.', '') }}"
