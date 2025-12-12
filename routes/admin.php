@@ -161,6 +161,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin', 'preve
     // Routes chatbot hỗ trợ
     Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
     Route::post('/chat/send', [ChatController::class, 'sendMessage'])->name('chat.send');
+    Route::get('/chat/conversations', [ChatController::class, 'getConversations'])->name('chat.conversations');
+    Route::post('/chat/conversation/create', [ChatController::class, 'createConversation'])->name('chat.conversation.create');
+    Route::get('/chat/conversation/{conversationId}/messages', [ChatController::class, 'getMessages'])->name('chat.conversation.messages');
+    Route::delete('/chat/conversation/{conversationId}', [ChatController::class, 'deleteConversation'])->name('chat.conversation.delete');
+    Route::delete('/chat/conversations/all', [ChatController::class, 'deleteAllConversations'])->name('chat.conversations.deleteAll');
+    Route::put('/chat/conversation/{conversationId}/title', [ChatController::class, 'updateConversationTitle'])->name('chat.conversation.updateTitle');
 
     // Thêm các routes admin khác ở đây
 });

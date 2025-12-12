@@ -117,15 +117,16 @@ class SalaryIncreaseDecisionController extends Controller
             $teacher->currentcoefficient = $request->newcoefficient;
             $teacher->save();
 
-            // Cập nhật lịch sử hệ số (nếu có)
-            if (method_exists($teacher, 'addCoefficientHistory')) {
-                $teacher->addCoefficientHistory(
-                    $request->newcoefficient,
-                    $request->applydate,
-                    null,
-                    $request->note
-                );
-            }
+            // Refresh model để đảm bảo dữ liệu được đồng bộ
+            $teacher->refresh();
+
+            // Cập nhật lịch sử hệ số lương
+            $teacher->addCoefficientHistory(
+                $request->newcoefficient,
+                $request->applydate,
+                null,
+                $request->note
+            );
 
             DB::commit();
 
@@ -193,6 +194,9 @@ class SalaryIncreaseDecisionController extends Controller
         try {
             DB::beginTransaction();
 
+            // Lưu hệ số cũ trong quyết định trước khi cập nhật
+            $oldCoefficientInDecision = $salaryincreasedecision->newcoefficient;
+
             // Cập nhật quyết định
             $salaryincreasedecision->update([
                 'teacherid' => $request->teacherid,
@@ -211,8 +215,20 @@ class SalaryIncreaseDecisionController extends Controller
                 ->first();
 
             if ($latestDecision && $latestDecision->decisionid == $salaryincreasedecision->decisionid) {
+                // Cập nhật hệ số hiện tại
                 $teacher->currentcoefficient = $request->newcoefficient;
                 $teacher->save();
+                
+                // Nếu hệ số mới khác với hệ số cũ trong quyết định, cập nhật lịch sử
+                if ($request->newcoefficient != $oldCoefficientInDecision) {
+                    $teacher->refresh();
+                    $teacher->addCoefficientHistory(
+                        $request->newcoefficient,
+                        $request->applydate,
+                        null,
+                        $request->note
+                    );
+                }
             }
 
             DB::commit();

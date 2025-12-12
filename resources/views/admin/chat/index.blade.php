@@ -60,29 +60,7 @@
                                     <!-- Danh sách lịch sử chat -->
                                     <div class="chat-history-container flex-grow-1" id="historyScrollContainer">
                                         <ul class="list-unstyled mb-0" id="conversationList">
-                                            <li class="conversation-item active" data-conversation-id="current">
-                                                <a href="#!" class="conversation-link">
-                                                    <div class="conversation-avatar-wrapper">
-                                                        <img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava6-bg.webp"
-                                                            alt="avatar" class="conversation-avatar">
-                                                        <span class="badge-dot badge-dot-online"></span>
-                                                    </div>
-                                                    <div class="conversation-info">
-                                                        <p class="conversation-name">Cuộc trò chuyện hiện tại</p>
-                                                        <p class="conversation-preview">Đang hoạt động</p>
-                                                    </div>
-                                                    <div class="conversation-meta">
-                                                        <span class="conversation-time">Vừa xong</span>
-                                                    </div>
-                                                </a>
-                                                <a href="#" class="btn btn-danger btn-sm rounded-pill text-white conversation-delete-btn" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#delete_conversation"
-                                                    data-conversation-id="current"
-                                                    title="Xóa cuộc trò chuyện này">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </a>
-                                            </li>
+                                            <!-- Danh sách sẽ được load từ database -->
                                         </ul>
                                     </div>
                                 </div>
@@ -135,7 +113,7 @@
                                 <div class="chat-input-area">
                                     <div class="chat-input-wrapper">
                                         <div class="chat-input-avatar">
-                                            <img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava6-bg.webp"
+                                            <img src="{{ $userAvatarUrl }}"
                                                 alt="avatar" class="input-avatar">
                                         </div>
                                         <form id="chatForm" class="chat-form">
@@ -933,8 +911,89 @@
         const sendBtn = $('#sendBtn');
         const clearChatBtn = $('#clearChatBtn');
         const conversationList = $('#conversationList');
-        let currentConversationId = 'current';
+        let currentConversationId = null;
         let messageHistory = [];
+
+        // Load danh sách conversations từ database
+        function loadConversations() {
+            $.ajax({
+                url: '{{ route("admin.chat.conversations") }}',
+                method: 'GET',
+                success: function(conversations) {
+                    conversationList.empty();
+                    
+                    if (conversations.length === 0) {
+                        // Nếu chưa có conversation nào, hiển thị welcome
+                        showWelcome();
+                    } else {
+                        // Render danh sách conversations (mới nhất ở trên)
+                        // Controller đã trả về theo thứ tự desc, nên append từng cái sẽ có mới nhất ở trên
+                        conversations.forEach(function(conv) {
+                            addConversationToList(conv, false);
+                        });
+                    }
+                },
+                error: function() {
+                    console.error('Lỗi khi load danh sách conversations');
+                }
+            });
+        }
+
+        // Avatar của user
+        const userAvatarUrl = '{{ $userAvatarUrl }}';
+        const botAvatarUrl = 'https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava6-bg.webp';
+
+        // Thêm conversation vào danh sách
+        function addConversationToList(conversation, setActive = false) {
+            const isActive = setActive || (currentConversationId === conversation.conversationid);
+            const activeClass = isActive ? 'active' : '';
+            
+            // Parse timestamp từ server (format: Y-m-d H:i:s đã ở timezone VN)
+            // Thêm timezone vào string để JavaScript parse đúng
+            const updatedDate = new Date(conversation.updatedat.replace(' ', 'T') + '+07:00');
+            const time = updatedDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+            const date = updatedDate.toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
+            
+            const conversationHtml = `
+                <li class="conversation-item ${activeClass}" data-conversation-id="${conversation.conversationid}">
+                    <a href="#!" class="conversation-link">
+                        <div class="conversation-avatar-wrapper">
+                            <img src="${userAvatarUrl}"
+                                alt="avatar" class="conversation-avatar">
+                            <span class="badge-dot badge-dot-online"></span>
+                        </div>
+                        <div class="conversation-info">
+                            <p class="conversation-name">${escapeHtml(conversation.title)}</p>
+                            <p class="conversation-preview">${escapeHtml(conversation.last_message || 'Chưa có tin nhắn')}</p>
+                        </div>
+                        <div class="conversation-meta">
+                            <span class="conversation-time">${time}</span>
+                        </div>
+                    </a>
+                    <a href="#" class="btn btn-danger btn-sm rounded-pill text-white conversation-delete-btn" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#delete_conversation"
+                        data-conversation-id="${conversation.conversationid}"
+                        title="Xóa cuộc trò chuyện này">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                </li>
+            `;
+            
+            // Sử dụng append để thêm vào cuối danh sách (mới nhất ở trên do controller đã sort desc)
+            conversationList.append(conversationHtml);
+            
+            if (setActive) {
+                currentConversationId = conversation.conversationid;
+            }
+        }
+
+        // Escape HTML để tránh XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
         // Auto scroll to bottom
         function scrollToBottom() {
@@ -942,15 +1001,25 @@
         }
 
         // Add message to chat
-        function addMessage(message, isUser = true) {
+        function addMessage(message, isUser = true, timestamp = null) {
             $('.chat-welcome').remove();
 
             const avatarSrc = isUser 
-                ? 'https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava1-bg.webp'
-                : 'https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava6-bg.webp';
+                ? userAvatarUrl
+                : botAvatarUrl;
             
-            const time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            const date = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: 'short' });
+            // Parse timestamp từ server hoặc dùng thời gian hiện tại
+            let messageDate;
+            if (timestamp) {
+                // Timestamp từ server (format: Y-m-d H:i:s đã ở timezone VN)
+                // Thêm timezone vào string để JavaScript parse đúng
+                messageDate = new Date(timestamp.replace(' ', 'T') + '+07:00');
+            } else {
+                // Thời gian hiện tại của browser
+                messageDate = new Date();
+            }
+            const time = messageDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+            const date = messageDate.toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
 
             const messageClass = isUser ? 'message-user' : 'message-bot';
 
@@ -958,7 +1027,7 @@
                 <div class="d-flex flex-row ${isUser ? 'justify-content-end' : 'justify-content-start'} ${messageClass} message-row">
                     ${!isUser ? `<img src="${avatarSrc}" alt="avatar" style="width: 45px; height: 45px; border-radius: 50%;" class="me-2">` : ''}
                     <div>
-                        <div class="message-bubble">${message.replace(/\n/g, '<br>')}</div>
+                        <div class="message-bubble">${escapeHtml(message).replace(/\n/g, '<br>')}</div>
                         <div class="message-time">${time} | ${date}</div>
                     </div>
                     ${isUser ? `<img src="${avatarSrc}" alt="avatar" style="width: 45px; height: 45px; border-radius: 50%;" class="ms-2">` : ''}
@@ -971,33 +1040,20 @@
             messageHistory.push({
                 message: message,
                 isUser: isUser,
-                timestamp: new Date()
+                timestamp: messageDate
             });
-
-            updateConversationPreview();
         }
 
-        // Update conversation preview
-        function updateConversationPreview() {
-            const currentItem = conversationList.find('[data-conversation-id="current"]');
-            const lastMessage = messageHistory[messageHistory.length - 1];
-            
-            if (lastMessage) {
-                const preview = lastMessage.message.length > 30 
-                    ? lastMessage.message.substring(0, 30) + '...' 
-                    : lastMessage.message;
-                const time = lastMessage.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                
-                currentItem.find('.conversation-preview').text(preview);
-                currentItem.find('.conversation-time').text(time);
-            }
+        // Reload conversations list
+        function reloadConversations() {
+            loadConversations();
         }
 
         // Show typing indicator
         function showTyping() {
             const typingHtml = `
                 <div class="d-flex flex-row justify-content-start mb-3" id="typingIndicator">
-                    <img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava6-bg.webp" 
+                    <img src="${botAvatarUrl}" 
                         alt="avatar" style="width: 45px; height: 45px; border-radius: 50%;" class="me-2">
                     <div class="typing-indicator">
                         <span></span>
@@ -1015,34 +1071,65 @@
             $('#typingIndicator').remove();
         }
 
-        // Load conversation
-        function loadConversation(conversationId) {
-            if (conversationId === 'current') {
-                chatMessages.html(`
-                    <div class="chat-welcome">
-                        <div class="welcome-icon-wrapper">
-                            <i class="fas fa-comments welcome-icon"></i>
-                        </div>
-                        <h4 class="welcome-title">Xin chào! 👋</h4>
-                        <p class="welcome-text">Tôi là chatbot hỗ trợ. Tôi có thể giúp bạn:</p>
-                        <ul class="welcome-list">
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Tìm hiểu về cơ sở dữ liệu</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Trả lời câu hỏi về hệ thống</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Hướng dẫn sử dụng các chức năng</span>
-                            </li>
-                        </ul>
-                        <p class="welcome-footer">Hãy đặt câu hỏi để bắt đầu!</p>
+        // Hiển thị welcome screen
+        function showWelcome() {
+            chatMessages.html(`
+                <div class="chat-welcome">
+                    <div class="welcome-icon-wrapper">
+                        <i class="fas fa-comments welcome-icon"></i>
                     </div>
-                `);
+                    <h4 class="welcome-title">Xin chào! 👋</h4>
+                    <p class="welcome-text">Tôi là chatbot hỗ trợ. Tôi có thể giúp bạn:</p>
+                    <ul class="welcome-list">
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <span>Tìm hiểu về cơ sở dữ liệu</span>
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <span>Trả lời câu hỏi về hệ thống</span>
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle"></i>
+                            <span>Hướng dẫn sử dụng các chức năng</span>
+                        </li>
+                    </ul>
+                    <p class="welcome-footer">Hãy đặt câu hỏi để bắt đầu!</p>
+                </div>
+            `);
+        }
+
+        // Load conversation từ database
+        function loadConversation(conversationId) {
+            if (!conversationId) {
+                showWelcome();
+                return;
             }
+
+            $.ajax({
+                url: `{{ url('admin/chat/conversation') }}/${conversationId}/messages`,
+                method: 'GET',
+                success: function(data) {
+                    chatMessages.empty();
+                    messageHistory = [];
+                    
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(function(msg) {
+                            addMessage(msg.content, msg.role === 'user', msg.timestamp);
+                        });
+                    } else {
+                        showWelcome();
+                    }
+                    
+                    // Cập nhật active state
+                    conversationList.find('.conversation-item').removeClass('active');
+                    conversationList.find(`[data-conversation-id="${conversationId}"]`).addClass('active');
+                },
+                error: function() {
+                    console.error('Lỗi khi load conversation');
+                    showWelcome();
+                }
+            });
         }
 
         // Handle form submit
@@ -1066,11 +1153,19 @@
                 method: 'POST',
                 data: {
                     _token: '{{ csrf_token() }}',
-                    message: message
+                    message: message,
+                    conversationid: currentConversationId
                 },
                 success: function(response) {
                     hideTyping();
                     addMessage(response.message, false);
+                    
+                    // Cập nhật conversation ID nếu là conversation mới
+                    if (response.conversationid && !currentConversationId) {
+                        currentConversationId = response.conversationid;
+                        // Reload danh sách conversations
+                        reloadConversations();
+                    }
                 },
                 error: function(xhr) {
                     hideTyping();
@@ -1115,42 +1210,13 @@
         $('#newConversationBtn').on('click', function(e) {
             e.preventDefault();
             
-            // Reset conversation hiện tại về welcome screen
-            chatMessages.html(`
-                <div class="chat-welcome">
-                    <div class="welcome-icon-wrapper">
-                        <i class="fas fa-comments welcome-icon"></i>
-                    </div>
-                    <h4 class="welcome-title">Xin chào! 👋</h4>
-                    <p class="welcome-text">Tôi là chatbot hỗ trợ. Tôi có thể giúp bạn:</p>
-                    <ul class="welcome-list">
-                        <li>
-                            <i class="fas fa-check-circle"></i>
-                            <span>Tìm hiểu về cơ sở dữ liệu</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-check-circle"></i>
-                            <span>Trả lời câu hỏi về hệ thống</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-check-circle"></i>
-                            <span>Hướng dẫn sử dụng các chức năng</span>
-                        </li>
-                    </ul>
-                    <p class="welcome-footer">Hãy đặt câu hỏi để bắt đầu!</p>
-                </div>
-            `);
-            
-            // Reset message history
+            // Reset conversation hiện tại
+            currentConversationId = null;
             messageHistory = [];
+            showWelcome();
             
-            // Set active conversation to current
+            // Remove active state
             conversationList.find('.conversation-item').removeClass('active');
-            const currentItem = conversationList.find('[data-conversation-id="current"]');
-            if (currentItem.length) {
-                currentItem.addClass('active');
-                currentConversationId = 'current';
-            }
             
             // Focus input
             messageInput.focus();
@@ -1178,49 +1244,29 @@
             // Close modal
             $('#delete_conversation').modal('hide');
             
-            if (conversationId === 'current') {
-                // Nếu là conversation hiện tại, chỉ reset nội dung
-                chatMessages.html(`
-                    <div class="chat-welcome">
-                        <div class="welcome-icon-wrapper">
-                            <i class="fas fa-comments welcome-icon"></i>
-                        </div>
-                        <h4 class="welcome-title">Xin chào! 👋</h4>
-                        <p class="welcome-text">Tôi là chatbot hỗ trợ. Tôi có thể giúp bạn:</p>
-                        <ul class="welcome-list">
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Tìm hiểu về cơ sở dữ liệu</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Trả lời câu hỏi về hệ thống</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Hướng dẫn sử dụng các chức năng</span>
-                            </li>
-                        </ul>
-                        <p class="welcome-footer">Hãy đặt câu hỏi để bắt đầu!</p>
-                    </div>
-                `);
-                messageHistory = [];
-                updateConversationPreview();
-            } else {
-                // Xóa conversation khác
-                conversationItem.fadeOut(300, function() {
-                    $(this).remove();
-                    
-                    // Nếu conversation đang active bị xóa, chuyển về conversation hiện tại
-                    if (currentConversationId === conversationId) {
-                        currentConversationId = 'current';
-                        const currentItem = conversationList.find('[data-conversation-id="current"]');
-                        conversationList.find('.conversation-item').removeClass('active');
-                        currentItem.addClass('active');
-                        loadConversation('current');
-                    }
-                });
-            }
+            // Xóa conversation từ database
+            $.ajax({
+                url: `{{ url('admin/chat/conversation') }}/${conversationId}`,
+                method: 'DELETE',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function() {
+                    conversationItem.fadeOut(300, function() {
+                        $(this).remove();
+                        
+                        // Nếu conversation đang active bị xóa, reset về welcome
+                        if (currentConversationId === conversationId) {
+                            currentConversationId = null;
+                            messageHistory = [];
+                            showWelcome();
+                        }
+                    });
+                },
+                error: function() {
+                    alert('Có lỗi xảy ra khi xóa cuộc trò chuyện');
+                }
+            });
         });
 
         // Confirm delete all conversations
@@ -1228,38 +1274,28 @@
             // Close modal
             $('#delete_all_conversations').modal('hide');
             
-            // Xóa tất cả conversation items (trừ conversation hiện tại)
-            conversationList.find('.conversation-item').not('[data-conversation-id="current"]').fadeOut(300, function() {
-                $(this).remove();
+            // Xóa tất cả conversations từ database
+            $.ajax({
+                url: '{{ route("admin.chat.conversations.deleteAll") }}',
+                method: 'DELETE',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function() {
+                    // Xóa tất cả conversation items
+                    conversationList.find('.conversation-item').fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                    
+                    // Reset conversation hiện tại
+                    currentConversationId = null;
+                    messageHistory = [];
+                    showWelcome();
+                },
+                error: function() {
+                    alert('Có lỗi xảy ra khi xóa tất cả cuộc trò chuyện');
+                }
             });
-            
-            // Reset conversation hiện tại
-            chatMessages.html(`
-                <div class="chat-welcome">
-                    <div class="welcome-icon-wrapper">
-                        <i class="fas fa-comments welcome-icon"></i>
-                    </div>
-                    <h4 class="welcome-title">Xin chào! 👋</h4>
-                    <p class="welcome-text">Tôi là chatbot hỗ trợ. Tôi có thể giúp bạn:</p>
-                    <ul class="welcome-list">
-                        <li>
-                            <i class="fas fa-check-circle"></i>
-                            <span>Tìm hiểu về cơ sở dữ liệu</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-check-circle"></i>
-                            <span>Trả lời câu hỏi về hệ thống</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-check-circle"></i>
-                            <span>Hướng dẫn sử dụng các chức năng</span>
-                        </li>
-                    </ul>
-                    <p class="welcome-footer">Hãy đặt câu hỏi để bắt đầu!</p>
-                </div>
-            `);
-            messageHistory = [];
-            updateConversationPreview();
         });
 
         // Conversation click handler
@@ -1277,6 +1313,9 @@
             currentConversationId = conversationId;
             loadConversation(conversationId);
         });
+        
+        // Load conversations khi trang được load
+        loadConversations();
 
         // Search conversations
         $('#searchConversations').on('keyup', function() {
