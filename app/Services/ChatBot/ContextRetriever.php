@@ -11,6 +11,7 @@ use App\Models\JobTitle;
 use App\Models\BudgetSpendingUnit;
 use App\Models\SystemUser;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ContextRetriever
 {
@@ -63,7 +64,7 @@ class ContextRetriever
                         ->toArray();
                 }
             } catch (\Exception $e) {
-                \Log::error('Error getting teacher data', [
+                Log::error('Error getting teacher data', [
                     'message' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
