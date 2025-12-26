@@ -23,19 +23,14 @@ class ChatController extends Controller
         $this->contextRetriever = $contextRetriever;
     }
 
-    /**
-     * Hiển thị giao diện chat
-     */
     public function index()
     {
         $user = Auth::user();
         
-        // Lấy danh sách cuộc trò chuyện của user
         $conversations = ChatConversation::where('userid', $user->userid)
             ->orderBy('updatedat', 'desc')
             ->get();
         
-        // Lấy avatar URL của user
         $userAvatarUrl = $user->avatar 
             ? asset('storage/'.$user->avatar) 
             : asset('assets/img/cropped_circle_image.png');
@@ -43,9 +38,6 @@ class ChatController extends Controller
         return view('admin.chat.index', compact('conversations', 'userAvatarUrl'));
     }
 
-    /**
-     * Lấy danh sách cuộc trò chuyện
-     */
     public function getConversations()
     {
         $user = Auth::user();
@@ -67,9 +59,6 @@ class ChatController extends Controller
         return response()->json($conversations);
     }
 
-    /**
-     * Tạo cuộc trò chuyện mới
-     */
     public function createConversation(Request $request)
     {
         $user = Auth::user();
@@ -95,14 +84,10 @@ class ChatController extends Controller
         ]);
     }
 
-    /**
-     * Lấy lịch sử tin nhắn của một cuộc trò chuyện
-     */
     public function getMessages($conversationId)
     {
         $user = Auth::user();
         
-        // Kiểm tra quyền truy cập
         $conversation = ChatConversation::where('conversationid', $conversationId)
             ->where('userid', $user->userid)
             ->firstOrFail();
@@ -127,9 +112,6 @@ class ChatController extends Controller
         ]);
     }
 
-    /**
-     * Xử lý tin nhắn từ người dùng và trả lời bằng AI
-     */
     public function sendMessage(Request $request)
     {
         $request->validate([
@@ -142,7 +124,6 @@ class ChatController extends Controller
             $userMessage = $request->input('message');
             $conversationId = $request->input('conversationid');
             
-            // Tạo conversation mới nếu chưa có
             if (!$conversationId) {
                 $conversationId = 'conv_' . time() . '_' . uniqid();
                 ChatConversation::create([
@@ -153,17 +134,14 @@ class ChatController extends Controller
                     'updatedat' => now(),
                 ]);
             } else {
-                // Kiểm tra quyền truy cập
                 $conversation = ChatConversation::where('conversationid', $conversationId)
                     ->where('userid', $user->userid)
                     ->firstOrFail();
                 
-                // Cập nhật thời gian
                 $conversation->updatedat = now();
                 $conversation->save();
             }
             
-            // Lấy lịch sử cuộc trò chuyện từ database
             $conversationHistory = ChatHistory::where('conversationid', $conversationId)
                 ->orderBy('createdat', 'asc')
                 ->get()
@@ -175,12 +153,10 @@ class ChatController extends Controller
                 })
                 ->toArray();
             
-            // Giới hạn lịch sử để tránh quá dài (chỉ lấy 20 tin nhắn gần nhất)
             if (count($conversationHistory) > 20) {
                 $conversationHistory = array_slice($conversationHistory, -20);
             }
             
-            // Lấy context từ database dựa trên câu hỏi
             try {
                 $context = $this->contextRetriever->getContext($userMessage);
             } catch (\Exception $e) {
@@ -188,11 +164,9 @@ class ChatController extends Controller
                     'message' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
-                // Sử dụng context rỗng nếu có lỗi
                 $context = [];
             }
             
-            // Gửi tin nhắn đến DeepSeek
             try {
                 $aiResponse = $this->deepSeekClient->chat($userMessage, $context, $conversationHistory);
             } catch (\Exception $e) {
@@ -203,7 +177,6 @@ class ChatController extends Controller
                 throw $e;
             }
             
-            // Lưu tin nhắn người dùng vào database
             ChatHistory::create([
                 'userid' => $user->userid,
                 'conversationid' => $conversationId,
@@ -212,7 +185,6 @@ class ChatController extends Controller
                 'createdat' => now(),
             ]);
             
-            // Lưu phản hồi AI vào database
             ChatHistory::create([
                 'userid' => $user->userid,
                 'conversationid' => $conversationId,
@@ -256,9 +228,6 @@ class ChatController extends Controller
         }
     }
 
-    /**
-     * Xóa cuộc trò chuyện
-     */
     public function deleteConversation($conversationId)
     {
         $user = Auth::user();
@@ -267,38 +236,27 @@ class ChatController extends Controller
             ->where('userid', $user->userid)
             ->firstOrFail();
         
-        // Xóa tất cả tin nhắn (cascade sẽ tự động xóa)
         ChatHistory::where('conversationid', $conversationId)->delete();
         
-        // Xóa conversation
         $conversation->delete();
         
         return response()->json(['success' => true]);
     }
 
-    /**
-     * Xóa tất cả cuộc trò chuyện
-     */
     public function deleteAllConversations()
     {
         $user = Auth::user();
         
-        // Lấy tất cả conversation của user
         $conversationIds = ChatConversation::where('userid', $user->userid)
             ->pluck('conversationid');
         
-        // Xóa tất cả tin nhắn
         ChatHistory::whereIn('conversationid', $conversationIds)->delete();
         
-        // Xóa tất cả conversation
         ChatConversation::where('userid', $user->userid)->delete();
         
         return response()->json(['success' => true]);
     }
 
-    /**
-     * Cập nhật tiêu đề cuộc trò chuyện
-     */
     public function updateConversationTitle(Request $request, $conversationId)
     {
         $user = Auth::user();
@@ -317,9 +275,6 @@ class ChatController extends Controller
         return response()->json(['success' => true]);
     }
 
-    /**
-     * Tạo tiêu đề tự động từ tin nhắn đầu tiên
-     */
     private function generateConversationTitle(string $message): string
     {
         $title = mb_substr(trim($message), 0, 50);

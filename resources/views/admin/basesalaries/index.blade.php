@@ -32,7 +32,7 @@
 
 <!-- Error Notification Modal -->
 @if ($errors->any())
-    <div class="modal fade notification-modal modal-error" id="errorNotificationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade notification-modal modal-error" id="errorNotificationModal" tabindex="-1" aria-hidden="true" data-has-errors="{{ $errors->any() ? 'true' : 'false' }}" data-has-error-session="{{ session('error') ? 'true' : 'false' }}">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header text-white">
@@ -841,9 +841,13 @@
 
         // Auto show error notification modal
         const errorModal = document.getElementById('errorNotificationModal');
-        if (errorModal && (@json($errors->any()) || @json(session('error')))) {
-            const modal = new bootstrap.Modal(errorModal);
-            modal.show();
+        if (errorModal) {
+            const hasErrors = errorModal.getAttribute('data-has-errors') === 'true';
+            const hasErrorSession = errorModal.getAttribute('data-has-error-session') === 'true';
+            if (hasErrors || hasErrorSession) {
+                const modal = new bootstrap.Modal(errorModal);
+                modal.show();
+            }
         }
 
         // Thêm validation cho ngày hết hạn (form create)

@@ -14,34 +14,26 @@ use Illuminate\Validation\Rule;
 
 class TeacherPayrollComponentController extends Controller
 {
-    /**
-     * Hiển thị danh sách cấu hình thành phần lương theo giáo viên
-     */
     public function index(Request $request)
     {
         $query = TeacherPayrollComponent::with(['component', 'teacher']);
 
-        // Tìm kiếm theo mã cấu hình
         if ($request->filled('search_id')) {
             $query->where('teachercomponentid', $request->search_id);
         }
 
-        // Tìm kiếm theo giáo viên
         if ($request->filled('search_teacherid')) {
             $query->where('teacherid', $request->search_teacherid);
         }
 
-        // Tìm kiếm theo thành phần lương
         if ($request->filled('search_componentid')) {
             $query->where('componentid', $request->search_componentid);
         }
 
-        // Tìm kiếm theo ngày hiệu lực
         if ($request->filled('search_effectivedate')) {
             $query->whereDate('effectivedate', $request->search_effectivedate);
         }
 
-        // Tìm kiếm theo trạng thái (đang hiệu lực / đã hết hạn)
         if ($request->filled('search_status')) {
             if ($request->search_status === 'active') {
                 $query->whereNull('expirationdate');
@@ -53,16 +45,12 @@ class TeacherPayrollComponentController extends Controller
 
         $configs = $query->orderBy('teachercomponentid', 'asc')->get();
 
-        // Lấy danh sách giáo viên và thành phần lương cho dropdown
         $allTeachers = Teacher::orderBy('fullname', 'asc')->get();
         $allComponents = PayrollComponent::orderBy('componentname', 'asc')->get();
 
         return view('admin.teacherpayrollcomponents.index', compact('configs', 'allTeachers', 'allComponents'));
     }
 
-    /**
-     * Lấy thông tin component theo ID (API)
-     */
     public function getComponent($id)
     {
         $component = PayrollComponent::find($id);
@@ -78,9 +66,6 @@ class TeacherPayrollComponentController extends Controller
         ]);
     }
 
-    /**
-     * Lấy danh sách component đã được cấu hình cho giáo viên (đang hiệu lực) - API
-     */
     public function getUsedComponents($teacherId)
     {
         $usedComponentIds = TeacherPayrollComponent::where('teacherid', $teacherId)
@@ -95,9 +80,6 @@ class TeacherPayrollComponentController extends Controller
         ]);
     }
 
-    /**
-     * Lấy giá trị cơ bản từ cấu hình chung cho component và ngày - API
-     */
     public function getBaseValues(Request $request)
     {
         $componentId = $request->input('componentid');
@@ -117,7 +99,6 @@ class TeacherPayrollComponentController extends Controller
         $basePercentage = null;
         $baseFixedAmount = null;
 
-        // Lấy giá trị cơ bản từ cấu hình chung (payrollcomponentconfig)
         $baseConfig = PayrollComponentConfig::where('componentid', $componentId)
             ->where('effectivedate', '<=', $effectiveDate)
             ->where(function($query) use ($effectiveDate) {
@@ -133,7 +114,6 @@ class TeacherPayrollComponentController extends Controller
             $baseFixedAmount = $baseConfig->fixedamount;
         }
 
-        // Nếu có giáo viên, lấy điều chỉnh từ cấu hình đơn vị (payrollcomponentunitconfig)
         $unitAdjustCoefficient = null;
         $unitAdjustPercentage = null;
         if ($teacherId) {
@@ -150,15 +130,11 @@ class TeacherPayrollComponentController extends Controller
                     ->first();
 
                 if ($unitConfig) {
-                    // Lưu giá trị điều chỉnh riêng để trả về
                     $unitAdjustCoefficient = $unitConfig->adjustcoefficient;
                     $unitAdjustPercentage = $unitConfig->adjustpercentage;
-                    
-                    // Không cộng điều chỉnh vào giá trị cơ bản nữa, chỉ trả về riêng biệt
                 }
             }
 
-            // Đặc biệt: Nếu component là "Lương ngạch bậc", lấy từ teacher.currentcoefficient
             if ($component->componentname === 'Lương ngạch bậc' || 
                 (stripos($component->componentname, 'lương ngạch bậc') !== false && $teacher->currentcoefficient)) {
                 $baseCoefficient = $teacher->currentcoefficient;
@@ -170,15 +146,12 @@ class TeacherPayrollComponentController extends Controller
             'base_coefficient' => $baseCoefficient,
             'base_percentage' => $basePercentage,
             'base_fixed_amount' => $baseFixedAmount,
-            'unit_adjust_coefficient' => $unitAdjustCoefficient, // Giá trị điều chỉnh từ unit config
-            'unit_adjust_percentage' => $unitAdjustPercentage, // Giá trị điều chỉnh từ unit config
+            'unit_adjust_coefficient' => $unitAdjustCoefficient,
+            'unit_adjust_percentage' => $unitAdjustPercentage,
             'calculation_method' => $component->calculationmethod,
         ]);
     }
 
-    /**
-     * Validation rules cho store (nhiều thành phần)
-     */
     private function getValidationRulesForStore(): array
     {
         return [
@@ -220,9 +193,6 @@ class TeacherPayrollComponentController extends Controller
         ];
     }
 
-    /**
-     * Validation rules cho update (một thành phần)
-     */
     private function getValidationRules($ignoreId = null): array
     {
         $rules = [
@@ -258,7 +228,6 @@ class TeacherPayrollComponentController extends Controller
             'note' => 'nullable|string|max:65535',
         ];
 
-        // Unique constraint: teacherid + componentid + effectivedate
         if ($ignoreId) {
             $rules['effectivedate'][] = Rule::unique('teacherpayrollcomponent', 'effectivedate')
                 ->where('teacherid', request('teacherid'))
@@ -273,9 +242,6 @@ class TeacherPayrollComponentController extends Controller
         return $rules;
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -300,9 +266,6 @@ class TeacherPayrollComponentController extends Controller
         ];
     }
 
-    /**
-     * Lưu cấu hình mới (có thể nhiều thành phần)
-     */
     public function store(Request $request)
     {
         $validator = Validator::make(
@@ -311,8 +274,6 @@ class TeacherPayrollComponentController extends Controller
             $this->getValidationMessages()
         );
 
-        // Validation cho các trường giá trị riêng đã được bỏ qua - giá trị sẽ lấy từ cấu hình chung hoặc từ giáo viên
-
         $validated = $validator->validate();
 
         $componentIds = $request->input('componentids', []);
@@ -320,7 +281,6 @@ class TeacherPayrollComponentController extends Controller
         $errors = [];
 
         foreach ($componentIds as $componentId) {
-            // Kiểm tra xem đã tồn tại cấu hình cho giáo viên + thành phần + ngày hiệu lực này chưa
             $existing = TeacherPayrollComponent::where('teacherid', $request->teacherid)
                 ->where('componentid', $componentId)
                 ->where('effectivedate', $request->effectivedate)
@@ -332,7 +292,6 @@ class TeacherPayrollComponentController extends Controller
                 continue;
             }
 
-            // Tự động đóng cấu hình cũ nếu có (set expirationdate = effectivedate - 1 ngày)
             TeacherPayrollComponent::where('teacherid', $request->teacherid)
                 ->where('componentid', $componentId)
                 ->whereNull('expirationdate')
@@ -341,8 +300,6 @@ class TeacherPayrollComponentController extends Controller
                     'expirationdate' => date('Y-m-d', strtotime($request->effectivedate . ' -1 day'))
                 ]);
 
-            // Tạo cấu hình mới
-            // Chỉ lưu các trường điều chỉnh, không lưu giá trị cơ bản (lấy từ cấu hình chung)
             $data = [
                 'teacherid' => $request->teacherid,
                 'componentid' => $componentId,
@@ -351,17 +308,13 @@ class TeacherPayrollComponentController extends Controller
                 'note' => $request->note,
             ];
 
-            // Lấy giáo viên để có unitid
             $teacher = Teacher::find($request->teacherid);
             $unitId = $teacher ? $teacher->unitid : null;
 
-            // Xử lý điều chỉnh hệ số
             $adjustCoefficient = null;
             if ($request->has('adjustcustomcoefficient') && $request->adjustcustomcoefficient !== null && $request->adjustcustomcoefficient !== '' && $request->adjustcustomcoefficient !== '0') {
-                // Nếu có giá trị từ form, sử dụng giá trị đó
                 $adjustCoefficient = $request->adjustcustomcoefficient;
             } elseif ($unitId) {
-                // Nếu rỗng, lấy từ payrollcomponentunitconfig
                 $unitConfig = PayrollComponentUnitConfig::where('unitid', $unitId)
                     ->where('componentid', $componentId)
                     ->where('effectivedate', '<=', $request->effectivedate)
@@ -377,13 +330,10 @@ class TeacherPayrollComponentController extends Controller
                 }
             }
 
-            // Xử lý điều chỉnh phần trăm
             $adjustPercentage = null;
             if ($request->has('adjustcustompercentage') && $request->adjustcustompercentage !== null && $request->adjustcustompercentage !== '' && $request->adjustcustompercentage !== '0') {
-                // Nếu có giá trị từ form, sử dụng giá trị đó
                 $adjustPercentage = $request->adjustcustompercentage;
             } elseif ($unitId) {
-                // Nếu rỗng, lấy từ payrollcomponentunitconfig
                 $unitConfig = PayrollComponentUnitConfig::where('unitid', $unitId)
                     ->where('componentid', $componentId)
                     ->where('effectivedate', '<=', $request->effectivedate)
@@ -399,7 +349,6 @@ class TeacherPayrollComponentController extends Controller
                 }
             }
 
-            // Chỉ thêm vào data nếu có giá trị
             if ($adjustCoefficient !== null) {
                 $data['adjustcustomcoefficient'] = $adjustCoefficient;
             }
@@ -426,9 +375,6 @@ class TeacherPayrollComponentController extends Controller
             ->with('success', $message);
     }
 
-    /**
-     * Cập nhật cấu hình
-     */
     public function update(Request $request, $id)
     {
         $config = TeacherPayrollComponent::findOrFail($id);
@@ -439,11 +385,8 @@ class TeacherPayrollComponentController extends Controller
             $this->getValidationMessages()
         );
 
-        // Validation cho các trường giá trị riêng đã được bỏ qua - giá trị sẽ lấy từ cấu hình chung hoặc từ giáo viên
-
         $validated = $validator->validate();
 
-        // Chỉ cập nhật các trường tồn tại trong bảng
         $updateData = [
             'teacherid' => $validated['teacherid'],
             'componentid' => $validated['componentid'],
@@ -452,14 +395,12 @@ class TeacherPayrollComponentController extends Controller
             'note' => $validated['note'] ?? null,
         ];
 
-        // Chỉ thêm điều chỉnh hệ số nếu có giá trị
         if (isset($validated['adjustcustomcoefficient']) && $validated['adjustcustomcoefficient'] !== null && $validated['adjustcustomcoefficient'] !== '' && $validated['adjustcustomcoefficient'] !== '0') {
             $updateData['adjustcustomcoefficient'] = $validated['adjustcustomcoefficient'];
         } else {
             $updateData['adjustcustomcoefficient'] = null;
         }
 
-        // Chỉ thêm điều chỉnh phần trăm nếu có giá trị
         if (isset($validated['adjustcustompercentage']) && $validated['adjustcustompercentage'] !== null && $validated['adjustcustompercentage'] !== '' && $validated['adjustcustompercentage'] !== '0') {
             $updateData['adjustcustompercentage'] = $validated['adjustcustompercentage'];
         } else {
@@ -472,14 +413,9 @@ class TeacherPayrollComponentController extends Controller
             ->with('success', 'Cập nhật cấu hình thành phần lương theo giáo viên thành công!');
     }
 
-    /**
-     * Xóa cấu hình
-     */
     public function destroy($id)
     {
         $config = TeacherPayrollComponent::findOrFail($id);
-
-        // TODO: Kiểm tra quan hệ với bảng payroll trước khi cho phép xóa
 
         $config->delete();
 

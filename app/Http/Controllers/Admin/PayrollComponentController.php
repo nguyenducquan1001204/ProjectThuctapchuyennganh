@@ -10,9 +10,6 @@ use Illuminate\Validation\Rule;
 
 class PayrollComponentController extends Controller
 {
-    /**
-     * Hiển thị danh sách thành phần lương
-     */
     public function index(Request $request)
     {
         $query = PayrollComponent::query();
@@ -35,20 +32,15 @@ class PayrollComponentController extends Controller
 
         $components = $query->orderBy('componentid', 'asc')->get();
 
-        // Lấy danh sách nhóm và phương pháp tính từ database (tiếng Việt)
         $groups = PayrollComponent::distinct()->pluck('componentgroup')->filter()->sort()->values()->toArray();
         $methods = PayrollComponent::distinct()->pluck('calculationmethod')->filter()->sort()->values()->toArray();
 
-        // Tạo mảng cho dropdown (key = value = tiếng Việt)
         $groups = array_combine($groups, $groups);
         $methods = array_combine($methods, $methods);
 
         return view('admin.payrollcomponents.index', compact('components', 'groups', 'methods'));
     }
 
-    /**
-     * Validation rules
-     */
     private function getValidationRules($ignoreId = null): array
     {
         $rules = [
@@ -57,20 +49,16 @@ class PayrollComponentController extends Controller
                 'string',
                 'min:3',
                 'max:200',
-                // cho phép chữ, số, khoảng trắng, và một số ký tự: , . - ( ) %
                 'regex:/^[\p{L}\p{N}\s,.\-%()]+$/u',
                 function ($attribute, $value, $fail) {
-                    // Kiểm tra nhiều khoảng trắng liên tiếp
                     if (preg_match('/\s{2,}/', $value)) {
                         $fail('Tên thành phần lương không được có nhiều khoảng trắng liên tiếp');
                         return;
                     }
 
-                    // Loại bỏ khoảng trắng đầu cuối để kiểm tra
                     $trimmed = trim($value);
                     $words = preg_split('/\s+/', $trimmed);
                     
-                    // Kiểm tra mỗi từ phải có ít nhất 2 ký tự
                     foreach ($words as $word) {
                         if (mb_strlen($word) < 2) {
                             $fail('Mỗi từ trong tên thành phần lương phải có ít nhất 2 ký tự');
@@ -103,9 +91,6 @@ class PayrollComponentController extends Controller
         return $rules;
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -123,9 +108,6 @@ class PayrollComponentController extends Controller
         ];
     }
 
-    /**
-     * Lưu thành phần lương mới
-     */
     public function store(Request $request)
     {
         $request->merge([
@@ -146,9 +128,6 @@ class PayrollComponentController extends Controller
             ->with('success', 'Thêm thành phần lương thành công!');
     }
 
-    /**
-     * Cập nhật thành phần lương
-     */
     public function update(Request $request, $id)
     {
         $component = PayrollComponent::findOrFail($id);
@@ -171,14 +150,9 @@ class PayrollComponentController extends Controller
             ->with('success', 'Cập nhật thành phần lương thành công!');
     }
 
-    /**
-     * Xóa thành phần lương
-     */
     public function destroy($id)
     {
         $component = PayrollComponent::findOrFail($id);
-
-        // TODO: kiểm tra quan hệ với các bảng bảng lương trước khi cho phép xóa
 
         $component->delete();
 

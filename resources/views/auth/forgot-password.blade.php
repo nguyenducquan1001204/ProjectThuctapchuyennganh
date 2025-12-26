@@ -136,7 +136,7 @@
                 const oldText = sendBtn.innerHTML;
                 sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang gửi...';
 
-                fetch('{{ route('password.sendCode') }}', {
+                fetch("{{ route('password.sendCode') }}", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -184,7 +184,7 @@
                 const oldText = verifyBtn.innerHTML;
                 verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang kiểm tra...';
 
-                fetch('{{ route('password.verifyCode') }}', {
+                fetch("{{ route('password.verifyCode') }}", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -241,7 +241,7 @@
                 const oldText = resetBtn.innerHTML;
                 resetBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang đặt lại...';
 
-                fetch('{{ route('password.reset') }}', {
+                fetch("{{ route('password.reset') }}", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -262,7 +262,7 @@
                         }
 
                         showAlert('success', data.message || 'Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.');
-                        window.location.href = '{{ route('login') }}';
+                        window.location.href = "{{ route('login') }}";
                     })
                     .catch(() => {
                         showAlert('danger', 'Không thể đặt lại mật khẩu. Vui lòng thử lại sau.');

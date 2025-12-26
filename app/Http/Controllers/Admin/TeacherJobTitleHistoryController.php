@@ -13,33 +13,26 @@ use Carbon\Carbon;
 
 class TeacherJobTitleHistoryController extends Controller
 {
-    /**
-     * Hiển thị danh sách lịch sử chức danh
-     */
     public function index(Request $request)
     {
         $query = TeacherJobTitleHistory::with(['teacher', 'jobTitle']);
         
-        // Tìm kiếm theo ID
         if ($request->filled('search_id')) {
             $query->where('historyid', $request->search_id);
         }
         
-        // Tìm kiếm theo giáo viên
         if ($request->filled('search_teacher')) {
             $query->whereHas('teacher', function($q) use ($request) {
                 $q->where('fullname', 'like', '%' . $request->search_teacher . '%');
             });
         }
         
-        // Tìm kiếm theo chức danh
         if ($request->filled('search_jobtitle')) {
             $query->whereHas('jobTitle', function($q) use ($request) {
                 $q->where('jobtitlename', 'like', '%' . $request->search_jobtitle . '%');
             });
         }
         
-        // Tìm kiếm theo ngày có hiệu lực
         if ($request->filled('search_effectivedate')) {
             $query->whereDate('effectivedate', $request->search_effectivedate);
         }
@@ -49,9 +42,6 @@ class TeacherJobTitleHistoryController extends Controller
         return view('admin.teacherjobtitlehistories.index', compact('histories'));
     }
 
-    /**
-     * Validation rules cho lịch sử chức danh
-     */
     private function getValidationRules($ignoreId = null): array
     {
         return [
@@ -72,7 +62,7 @@ class TeacherJobTitleHistoryController extends Controller
             'expiredate' => [
                 'nullable',
                 'date',
-                'after:effectivedate', // Ngày kết thúc phải sau ngày bắt đầu
+                'after:effectivedate',
             ],
             'note' => [
                 'nullable',
@@ -81,9 +71,6 @@ class TeacherJobTitleHistoryController extends Controller
         ];
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -101,9 +88,6 @@ class TeacherJobTitleHistoryController extends Controller
         ];
     }
 
-    /**
-     * Lưu lịch sử chức danh mới
-     */
     public function store(Request $request)
     {
         $request->merge([
@@ -124,9 +108,6 @@ class TeacherJobTitleHistoryController extends Controller
             ->with('success', 'Thêm lịch sử chức danh thành công!');
     }
 
-    /**
-     * Cập nhật lịch sử chức danh
-     */
     public function update(Request $request, $id)
     {
         $history = TeacherJobTitleHistory::findOrFail($id);
@@ -153,9 +134,6 @@ class TeacherJobTitleHistoryController extends Controller
             ->with('success', 'Cập nhật lịch sử chức danh thành công!');
     }
 
-    /**
-     * Xóa lịch sử chức danh
-     */
     public function destroy($id)
     {
         $history = TeacherJobTitleHistory::findOrFail($id);

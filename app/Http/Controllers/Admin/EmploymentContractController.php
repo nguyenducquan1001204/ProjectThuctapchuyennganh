@@ -11,40 +11,30 @@ use Carbon\Carbon;
 
 class EmploymentContractController extends Controller
 {
-    /**
-     * Hiển thị danh sách hợp đồng
-     */
     public function index(Request $request)
     {
         $query = EmploymentContract::with(['teacher']);
         
-        // Tìm kiếm theo giáo viên
         if ($request->filled('search_teacher')) {
             $query->whereHas('teacher', function($q) use ($request) {
                 $q->where('fullname', 'like', '%' . $request->search_teacher . '%');
             });
         }
         
-        // Tìm kiếm theo loại hợp đồng
         if ($request->filled('search_contracttype')) {
             $query->where('contracttype', $request->search_contracttype);
         }
         
-        // Tìm kiếm theo ngày ký
         if ($request->filled('search_signdate')) {
             $query->whereDate('signdate', $request->search_signdate);
         }
         
-        // Tìm kiếm theo ngày hiệu lực
         if ($request->filled('search_startdate')) {
             $query->whereDate('startdate', $request->search_startdate);
         }
         
         $contracts = $query->orderBy('contractid', 'desc')->get();
         
-        // Lấy danh sách giáo viên cho dropdown
-        // Khi tạo mới: Loại bỏ giáo viên đã có hợp đồng đang hiệu lực (enddate = null hoặc enddate >= today)
-        // Khi chỉnh sửa: Hiển thị tất cả giáo viên để có thể thay đổi
         $today = Carbon::today();
         $teacherIdsWithActiveContracts = EmploymentContract::where(function($q) use ($today) {
             $q->whereNull('enddate')
@@ -56,16 +46,11 @@ class EmploymentContractController extends Controller
             ->orderBy('fullname', 'asc')
             ->get();
         
-        // Gán teachers = availableTeachers cho dropdown tạo mới
         $teachers = $availableTeachers;
-        // allTeachers dùng cho dropdown chỉnh sửa
         
         return view('admin.employmentcontracts.index', compact('contracts', 'teachers', 'allTeachers'));
     }
 
-    /**
-     * Validation rules cho hợp đồng
-     */
     private function getValidationRules($ignoreId = null): array
     {
         return [
@@ -100,9 +85,6 @@ class EmploymentContractController extends Controller
         ];
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -122,9 +104,6 @@ class EmploymentContractController extends Controller
         ];
     }
 
-    /**
-     * Lưu hợp đồng mới
-     */
     public function store(Request $request)
     {
         $request->merge([
@@ -146,9 +125,6 @@ class EmploymentContractController extends Controller
             ->with('success', 'Thêm hợp đồng thành công!');
     }
 
-    /**
-     * Cập nhật hợp đồng
-     */
     public function update(Request $request, $id)
     {
         $contract = EmploymentContract::findOrFail($id);
@@ -176,14 +152,9 @@ class EmploymentContractController extends Controller
             ->with('success', 'Cập nhật hợp đồng thành công!');
     }
 
-    /**
-     * Xóa hợp đồng
-     */
     public function destroy($id)
     {
         $contract = EmploymentContract::findOrFail($id);
-        
-        // TODO: Kiểm tra quan hệ với các bảng khác trước khi xóa
         
         $contract->delete();
 

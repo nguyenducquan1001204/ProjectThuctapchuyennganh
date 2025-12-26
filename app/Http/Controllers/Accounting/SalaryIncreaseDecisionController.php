@@ -60,11 +60,10 @@ class SalaryIncreaseDecisionController extends Controller
                 'min:0',
                 'max:9999.9999',
                 function ($attribute, $value, $fail) use ($request) {
-                    // Lấy hệ số hiện tại của giáo viên
                     $teacher = Teacher::find($request->teacherid);
                     if ($teacher && $teacher->currentcoefficient) {
                         if ($value <= $teacher->currentcoefficient) {
-                            $fail('Hệ số mới phải lớn hơn hệ số hiện tại (' . number_format($teacher->currentcoefficient, 4) . ')');
+                            $fail('Hệ số mới phải lớn hơn hệ số hiện tại (' . number_format((float)$teacher->currentcoefficient, 4) . ')');
                         }
                     }
                 },

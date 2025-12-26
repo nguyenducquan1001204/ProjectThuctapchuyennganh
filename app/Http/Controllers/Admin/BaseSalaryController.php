@@ -12,29 +12,22 @@ use Carbon\Carbon;
 
 class BaseSalaryController extends Controller
 {
-    /**
-     * Hiển thị danh sách mức lương cơ bản
-     */
     public function index(Request $request)
     {
         $query = BaseSalary::with('unit');
 
-        // Tìm kiếm theo mã mức lương
         if ($request->filled('search_id')) {
             $query->where('basesalaryid', $request->search_id);
         }
 
-        // Tìm kiếm theo đơn vị
         if ($request->filled('search_unitid')) {
             $query->where('unitid', $request->search_unitid);
         }
 
-        // Tìm kiếm theo ngày hiệu lực
         if ($request->filled('search_effectivedate')) {
             $query->whereDate('effectivedate', $request->search_effectivedate);
         }
 
-        // Tìm kiếm theo trạng thái (đang hiệu lực / đã hết hạn)
         if ($request->filled('search_status')) {
             if ($request->search_status === 'active') {
                 $query->whereNull('expirationdate');
@@ -46,15 +39,11 @@ class BaseSalaryController extends Controller
 
         $baseSalaries = $query->orderBy('basesalaryid', 'asc')->get();
 
-        // Lấy danh sách đơn vị cho dropdown
         $allUnits = BudgetSpendingUnit::orderBy('unitname', 'asc')->get();
 
         return view('admin.basesalaries.index', compact('baseSalaries', 'allUnits'));
     }
 
-    /**
-     * Validation rules
-     */
     private function getValidationRules($ignoreId = null): array
     {
         $rules = [
@@ -80,7 +69,6 @@ class BaseSalaryController extends Controller
             'note' => 'nullable|string|max:65535',
         ];
 
-        // Unique constraint: unitid + effectivedate
         if ($ignoreId) {
             $rules['effectivedate'][] = Rule::unique('basesalary', 'effectivedate')
                 ->where('unitid', request('unitid'))
@@ -93,9 +81,6 @@ class BaseSalaryController extends Controller
         return $rules;
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -112,9 +97,6 @@ class BaseSalaryController extends Controller
         ];
     }
 
-    /**
-     * Lưu mức lương cơ bản mới
-     */
     public function store(Request $request)
     {
         $validator = Validator::make(
@@ -125,17 +107,14 @@ class BaseSalaryController extends Controller
 
         $validated = $validator->validate();
 
-        // Chuyển đổi basesalaryamount từ string sang float
         if (isset($validated['basesalaryamount'])) {
             $validated['basesalaryamount'] = (float) str_replace(',', '.', $validated['basesalaryamount']);
         }
 
-        // Chuyển đổi unitid
         if (isset($validated['unitid'])) {
             $validated['unitid'] = $validated['unitid'] ? (int)$validated['unitid'] : null;
         }
 
-        // Tự động đóng mức lương cơ bản cũ nếu có (set expirationdate = effectivedate - 1 ngày)
         if ($request->filled('unitid') && $request->filled('effectivedate')) {
             BaseSalary::where('unitid', $request->unitid)
                 ->whereNull('expirationdate')
@@ -151,9 +130,6 @@ class BaseSalaryController extends Controller
             ->with('success', 'Thêm mức lương cơ bản thành công!');
     }
 
-    /**
-     * Cập nhật mức lương cơ bản
-     */
     public function update(Request $request, $id)
     {
         $baseSalary = BaseSalary::findOrFail($id);
@@ -166,12 +142,10 @@ class BaseSalaryController extends Controller
 
         $validated = $validator->validate();
 
-        // Chuyển đổi basesalaryamount từ string sang float
         if (isset($validated['basesalaryamount'])) {
             $validated['basesalaryamount'] = (float) str_replace(',', '.', $validated['basesalaryamount']);
         }
 
-        // Chuyển đổi unitid
         if (isset($validated['unitid'])) {
             $validated['unitid'] = $validated['unitid'] ? (int)$validated['unitid'] : null;
         }
@@ -182,20 +156,15 @@ class BaseSalaryController extends Controller
             ->with('success', 'Cập nhật mức lương cơ bản thành công!');
     }
 
-    /**
-     * Tạm kết thúc mức lương cơ bản (set expirationdate = hôm nay)
-     */
     public function terminate($id)
     {
         $baseSalary = BaseSalary::findOrFail($id);
 
-        // Chỉ cho phép kết thúc nếu chưa có expirationdate
         if ($baseSalary->expirationdate !== null) {
             return redirect()->route('admin.basesalary.index')
                 ->with('error', 'Mức lương cơ bản này đã được kết thúc trước đó!');
         }
 
-        // Set expirationdate = hôm nay
         $baseSalary->update([
             'expirationdate' => Carbon::today()
         ]);
@@ -204,14 +173,9 @@ class BaseSalaryController extends Controller
             ->with('success', 'Đã tạm kết thúc mức lương cơ bản thành công! Bạn có thể tạo mức lương cơ bản mới.');
     }
 
-    /**
-     * Xóa mức lương cơ bản
-     */
     public function destroy($id)
     {
         $baseSalary = BaseSalary::findOrFail($id);
-
-        // TODO: Kiểm tra quan hệ với bảng payroll trước khi cho phép xóa
 
         $baseSalary->delete();
 

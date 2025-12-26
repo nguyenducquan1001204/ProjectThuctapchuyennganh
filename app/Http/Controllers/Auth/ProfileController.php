@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\SystemUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -11,11 +12,9 @@ use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
-    /**
-     * Hiển thị trang thông tin tài khoản.
-     */
     public function show()
     {
+        /** @var SystemUser $user */
         $user = Auth::user();
 
         $roleName = Str::lower(optional($user->role)->rolename ?? '');
@@ -37,11 +36,9 @@ class ProfileController extends Controller
         ]);
     }
 
-    /**
-     * Đổi mật khẩu từ trang thông tin tài khoản.
-     */
     public function updatePassword(Request $request)
     {
+        /** @var SystemUser $user */
         $user = Auth::user();
 
         $data = $request->validate(
@@ -73,11 +70,9 @@ class ProfileController extends Controller
             ->with('active_tab', 'password');
     }
 
-    /**
-     * Cập nhật email và avatar.
-     */
     public function updateInfo(Request $request)
     {
+        /** @var SystemUser $user */
         $user = Auth::user();
 
         $data = $request->validate(
@@ -95,12 +90,9 @@ class ProfileController extends Controller
             ]
         );
 
-        // Cập nhật email
         $user->email = $data['email'] ?? null;
 
-        // Xử lý avatar nếu có
         if ($request->hasFile('avatar')) {
-            // Xóa avatar cũ nếu tồn tại
             if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
                 Storage::disk('public')->delete($user->avatar);
             }

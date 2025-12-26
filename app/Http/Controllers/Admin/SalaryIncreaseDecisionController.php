@@ -11,44 +11,33 @@ use Illuminate\Support\Facades\DB;
 
 class SalaryIncreaseDecisionController extends Controller
 {
-    /**
-     * Hiển thị danh sách quyết định nâng lương
-     */
     public function index(Request $request)
     {
         $query = SalaryIncreaseDecision::with('teacher');
 
-        // Tìm kiếm theo mã quyết định
         if ($request->filled('search_id')) {
             $query->where('decisionid', $request->search_id);
         }
 
-        // Tìm kiếm theo giáo viên
         if ($request->filled('search_teacherid')) {
             $query->where('teacherid', $request->search_teacherid);
         }
 
-        // Tìm kiếm theo ngày ký quyết định
         if ($request->filled('search_decisiondate')) {
             $query->whereDate('decisiondate', $request->search_decisiondate);
         }
 
-        // Tìm kiếm theo ngày áp dụng
         if ($request->filled('search_applydate')) {
             $query->whereDate('applydate', $request->search_applydate);
         }
 
         $decisions = $query->orderBy('decisionid', 'desc')->get();
 
-        // Lấy danh sách giáo viên cho dropdown
         $allTeachers = Teacher::orderBy('fullname', 'asc')->get();
 
         return view('admin.salaryincreasedecisions.index', compact('decisions', 'allTeachers'));
     }
 
-    /**
-     * Lưu quyết định nâng lương mới
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -60,7 +49,6 @@ class SalaryIncreaseDecisionController extends Controller
                 'min:0',
                 'max:9999.9999',
                 function ($attribute, $value, $fail) use ($request) {
-                    // Lấy hệ số hiện tại của giáo viên
                     $teacher = Teacher::find($request->teacherid);
                     if ($teacher && $teacher->currentcoefficient) {
                         if ($value <= $teacher->currentcoefficient) {
@@ -99,11 +87,9 @@ class SalaryIncreaseDecisionController extends Controller
         try {
             DB::beginTransaction();
 
-            // Lấy giáo viên và hệ số hiện tại
             $teacher = Teacher::findOrFail($request->teacherid);
             $oldCoefficient = $teacher->currentcoefficient ?? 0;
 
-            // Tạo quyết định nâng lương
             $decision = SalaryIncreaseDecision::create([
                 'teacherid' => $request->teacherid,
                 'decisiondate' => $request->decisiondate,
@@ -113,14 +99,11 @@ class SalaryIncreaseDecisionController extends Controller
                 'note' => $request->note,
             ]);
 
-            // Cập nhật hệ số hiện tại của giáo viên
             $teacher->currentcoefficient = $request->newcoefficient;
             $teacher->save();
 
-            // Refresh model để đảm bảo dữ liệu được đồng bộ
             $teacher->refresh();
 
-            // Cập nhật lịch sử hệ số lương
             $teacher->addCoefficientHistory(
                 $request->newcoefficient,
                 $request->applydate,
@@ -140,9 +123,6 @@ class SalaryIncreaseDecisionController extends Controller
         }
     }
 
-    /**
-     * Cập nhật quyết định nâng lương
-     */
     public function update(Request $request, SalaryIncreaseDecision $salaryincreasedecision)
     {
         $validator = Validator::make($request->all(), [
@@ -194,10 +174,8 @@ class SalaryIncreaseDecisionController extends Controller
         try {
             DB::beginTransaction();
 
-            // Lưu hệ số cũ trong quyết định trước khi cập nhật
             $oldCoefficientInDecision = $salaryincreasedecision->newcoefficient;
 
-            // Cập nhật quyết định
             $salaryincreasedecision->update([
                 'teacherid' => $request->teacherid,
                 'decisiondate' => $request->decisiondate,
@@ -207,7 +185,6 @@ class SalaryIncreaseDecisionController extends Controller
                 'note' => $request->note,
             ]);
 
-            // Cập nhật hệ số hiện tại của giáo viên nếu đây là quyết định mới nhất
             $teacher = Teacher::findOrFail($request->teacherid);
             $latestDecision = SalaryIncreaseDecision::where('teacherid', $request->teacherid)
                 ->orderBy('applydate', 'desc')
@@ -215,11 +192,9 @@ class SalaryIncreaseDecisionController extends Controller
                 ->first();
 
             if ($latestDecision && $latestDecision->decisionid == $salaryincreasedecision->decisionid) {
-                // Cập nhật hệ số hiện tại
                 $teacher->currentcoefficient = $request->newcoefficient;
                 $teacher->save();
                 
-                // Nếu hệ số mới khác với hệ số cũ trong quyết định, cập nhật lịch sử
                 if ($request->newcoefficient != $oldCoefficientInDecision) {
                     $teacher->refresh();
                     $teacher->addCoefficientHistory(
@@ -243,9 +218,6 @@ class SalaryIncreaseDecisionController extends Controller
         }
     }
 
-    /**
-     * Xóa quyết định nâng lương
-     */
     public function destroy(SalaryIncreaseDecision $salaryincreasedecision)
     {
         try {
@@ -254,10 +226,8 @@ class SalaryIncreaseDecisionController extends Controller
             $teacherId = $salaryincreasedecision->teacherid;
             $decisionId = $salaryincreasedecision->decisionid;
 
-            // Xóa quyết định
             $salaryincreasedecision->delete();
 
-            // Cập nhật lại hệ số hiện tại của giáo viên từ quyết định mới nhất còn lại
             $latestDecision = SalaryIncreaseDecision::where('teacherid', $teacherId)
                 ->orderBy('applydate', 'desc')
                 ->orderBy('decisionid', 'desc')
@@ -267,8 +237,6 @@ class SalaryIncreaseDecisionController extends Controller
             if ($latestDecision) {
                 $teacher->currentcoefficient = $latestDecision->newcoefficient;
             } else {
-                // Nếu không còn quyết định nào, giữ nguyên hệ số hiện tại hoặc set về 0
-                // (có thể cần logic khác tùy yêu cầu)
             }
             $teacher->save();
 
@@ -283,9 +251,6 @@ class SalaryIncreaseDecisionController extends Controller
         }
     }
 
-    /**
-     * Lấy hệ số hiện tại của giáo viên (API)
-     */
     public function getCurrentCoefficient($teacherId)
     {
         $teacher = Teacher::find($teacherId);

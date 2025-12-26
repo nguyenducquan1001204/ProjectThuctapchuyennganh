@@ -9,7 +9,7 @@ class DeepSeekClient
 {
     private string $apiKey;
     private string $baseUrl = 'https://openrouter.ai/api/v1';
-    private string $model = 'tngtech/deepseek-r1t2-chimera:free';
+    private string $model = 'mistralai/devstral-2512:free';
 
     public function __construct()
     {

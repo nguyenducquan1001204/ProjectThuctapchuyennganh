@@ -9,17 +9,14 @@ use App\Models\PayrollRunDetail;
 use App\Models\PayrollRunDetailComponent;
 use App\Models\TeacherPayrollComponent;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class PayrollRunDetailController extends Controller
 {
-    /**
-     * Hiển thị danh sách chi tiết bảng lương của giáo viên hiện tại
-     */
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         
-        // Kiểm tra xem user có liên kết với Teacher không
         if (!$user || !$user->teacherid) {
             return redirect()->route('teacher.dashboard')
                 ->with('error', 'Tài khoản của bạn chưa được liên kết với giáo viên. Vui lòng liên hệ quản trị viên.');
@@ -35,17 +32,12 @@ class PayrollRunDetailController extends Controller
         $query = PayrollRunDetail::with(['payrollRun.unit', 'components.component'])
             ->where('teacherid', $teacher->teacherid);
 
-        // Tìm kiếm theo mã chi tiết
         if ($request->filled('search_id')) {
             $query->where('detailid', $request->search_id);
         }
-
-        // Tìm kiếm theo bảng lương
         if ($request->filled('search_payrollrunid')) {
             $query->where('payrollrunid', $request->search_payrollrunid);
         }
-
-        // Tìm kiếm theo tổng thu nhập (từ - đến)
         if ($request->filled('search_totalincome_from')) {
             $query->where('totalincome', '>=', $request->search_totalincome_from);
         }
@@ -58,16 +50,12 @@ class PayrollRunDetailController extends Controller
         return view('teacher.payrollrundetails.index', compact('payrollRunDetails', 'teacher'));
     }
 
-    /**
-     * Lấy chi tiết cách tính bảng lương
-     */
     public function getCalculationDetails($id)
     {
         $detail = PayrollRunDetail::with(['payrollRun.baseSalary', 'teacher', 'components.component'])->findOrFail($id);
         
-        $user = auth()->user();
+        $user = Auth::user();
         
-        // Kiểm tra xem detail có thuộc về teacher hiện tại không
         if (!$user || !$user->teacherid || $detail->teacherid != $user->teacherid) {
             return response()->json([
                 'success' => false,
@@ -89,12 +77,10 @@ class PayrollRunDetailController extends Controller
         $baseSalaryAmount = $baseSalary ? $baseSalary->basesalaryamount : 0;
         $teacherCoefficient = $teacher->currentcoefficient ?? 0;
 
-        // Lấy ngày hiệu lực
         $payrollPeriod = $payrollRun->payrollperiod;
         $periodEnd = $payrollPeriod . '-01';
         $periodEnd = Carbon::parse($periodEnd)->endOfMonth()->format('Y-m-d');
 
-        // Lấy các thành phần lương từ teacherpayrollcomponent
         $teacherComponents = TeacherPayrollComponent::where('teacherid', $teacher->teacherid)
             ->where('effectivedate', '<=', $periodEnd)
             ->where(function($query) use ($payrollPeriod) {
@@ -105,7 +91,6 @@ class PayrollRunDetailController extends Controller
             ->with('component')
             ->get();
 
-        // Tạo mảng component values
         $componentValues = [];
         foreach ($teacherComponents as $teacherComponent) {
             $component = $teacherComponent->component;
@@ -114,7 +99,6 @@ class PayrollRunDetailController extends Controller
             $coefficient = $teacherComponent->adjustcustomcoefficient ?? 0;
             $percentage = $teacherComponent->adjustcustompercentage ?? 0;
 
-            // Đặc biệt: Nếu là "Lương ngạch bậc", lấy từ teacher.currentcoefficient
             if (stripos($component->componentname, 'lương ngạch bậc') !== false && $teacherCoefficient) {
                 $coefficient = $teacherCoefficient;
             }
@@ -130,7 +114,6 @@ class PayrollRunDetailController extends Controller
             ];
         }
 
-        // Tìm các thành phần cần thiết
         $phuCapChucVu = $this->findComponentByName($componentValues, ['Phụ cấp chức vụ', 'phụ cấp chức vụ']);
         $phuCapVuotKhung = $this->findComponentByName($componentValues, ['Phụ cấp vượt khung', 'phụ cấp vượt khung']);
         $phuCapUuDai = $this->findComponentByName($componentValues, ['Phụ cấp ưu đãi', 'phụ cấp ưu đãi']);
@@ -138,17 +121,14 @@ class PayrollRunDetailController extends Controller
         $phuCapTrachNhiem = $this->findComponentByName($componentValues, ['Phụ cấp trách nhiệm', 'phụ cấp trách nhiệm']);
         $phuCapDocHai = $this->findComponentByName($componentValues, ['Phụ cấp độc hại', 'phụ cấp độc hại']);
 
-        // Lấy giá trị HỆ SỐ
         $phuCapChucVuHeSo = $phuCapChucVu ? $phuCapChucVu['value']['coefficient'] : 0;
         $phuCapVuotKhungHeSo = $phuCapVuotKhung ? $phuCapVuotKhung['value']['coefficient'] : 0;
         $phuCapTrachNhiemHeSo = $phuCapTrachNhiem ? $phuCapTrachNhiem['value']['coefficient'] : 0;
         $phuCapDocHaiHeSo = $phuCapDocHai ? $phuCapDocHai['value']['coefficient'] : 0;
 
-        // Lấy giá trị TỶ LỆ
         $phuCapUuDaiTyLe = $phuCapUuDai ? ($phuCapUuDai['value']['percentage'] ?? 0) : 0;
         $phuCapThamNienTyLe = $phuCapThamNien ? ($phuCapThamNien['value']['percentage'] ?? 0) : 0;
 
-        // Tính Hệ số phụ cấp
         $heSoPhuCap = 0;
         if ($phuCapUuDai) {
             $tongHeSoChoPhuCap = $teacherCoefficient + $phuCapChucVuHeSo + $phuCapVuotKhungHeSo;
@@ -156,7 +136,6 @@ class PayrollRunDetailController extends Controller
             $heSoPhuCap = $tongHeSoChoPhuCap * $tyLeValue;
         }
 
-        // Tính Hệ số phụ cấp thâm niên
         $heSoPhuCapThamNien = 0;
         if ($phuCapThamNien) {
             $tongHeSoChoPhuCap = $teacherCoefficient + $phuCapChucVuHeSo + $phuCapVuotKhungHeSo;
@@ -164,7 +143,6 @@ class PayrollRunDetailController extends Controller
             $heSoPhuCapThamNien = $tongHeSoChoPhuCap * $tyLeValue;
         }
 
-        // Tính Tổng hệ số
         $tongHeSo = $teacherCoefficient
             + $phuCapChucVuHeSo
             + $phuCapVuotKhungHeSo
@@ -173,22 +151,18 @@ class PayrollRunDetailController extends Controller
             + $heSoPhuCap
             + $heSoPhuCapThamNien;
 
-        // Tính Quỹ lương phụ cấp 01 tháng
         $quyLuongPhuCap = $tongHeSo * $baseSalaryAmount;
 
-        // Tính các khoản trừ
         $tongHeSoChoTru = $teacherCoefficient
             + $phuCapChucVuHeSo
             + $phuCapVuotKhungHeSo
             + $heSoPhuCapThamNien;
         $quyLuongChoTru = $tongHeSoChoTru * $baseSalaryAmount;
 
-        // Lấy các thành phần bảo hiểm
         $bhxhNhanVien = $this->findComponentByName($componentValues, ['BHXH nhân viên', 'bhxh nhân viên']);
         $bhytNhanVien = $this->findComponentByName($componentValues, ['BHYT nhân viên', 'bhyt nhân viên']);
         $bhtnNhanVien = $this->findComponentByName($componentValues, ['BHTN nhân viên', 'bhtn nhân viên']);
 
-        // Tính các khoản trừ
         $bhxhPercentageRaw = $bhxhNhanVien ? ($bhxhNhanVien['value']['percentage'] ?? 0) : 0;
         $bhxhPercentage = $bhxhPercentageRaw >= 1 ? $bhxhPercentageRaw / 100 : $bhxhPercentageRaw / 10;
         $tienTruBHXH = $quyLuongChoTru * $bhxhPercentage;
@@ -203,13 +177,11 @@ class PayrollRunDetailController extends Controller
 
         $tongTruNhanVien = $tienTruBHXH + $tienTruBHYT + $tienTruBHTN;
 
-        // Lấy các thành phần ngân sách
         $bhxhDonVi = $this->findComponentByName($componentValues, ['BHXH đơn vị', 'bhxh đơn vị']);
         $bhytDonVi = $this->findComponentByName($componentValues, ['BHYT đơn vị', 'bhyt đơn vị']);
         $bhtnDonVi = $this->findComponentByName($componentValues, ['BHTN đơn vị', 'bhtn đơn vị']);
         $bhtnTuNganSach = $this->findComponentByName($componentValues, ['BHTN từ ngân sách', 'bhtn từ ngân sách']);
 
-        // Tính các khoản ngân sách
         $bhxhDonViPercentageRaw = $bhxhDonVi ? ($bhxhDonVi['value']['percentage'] ?? 0) : 0;
         $bhxhDonViPercentage = $bhxhDonViPercentageRaw >= 1 ? $bhxhDonViPercentageRaw / 100 : $bhxhDonViPercentageRaw / 10;
         $nganSachBHXH = $quyLuongChoTru * $bhxhDonViPercentage;
@@ -228,7 +200,6 @@ class PayrollRunDetailController extends Controller
 
         $tongNganSach = $nganSachBHXH + $nganSachBHYT + $nganSachBHTN + $nganSachBHTNTuNS;
 
-        // Lấy danh sách components từ payrollrundetailcomponent
         $components = PayrollRunDetailComponent::where('detailid', $detail->detailid)
             ->with('component')
             ->get()
@@ -287,9 +258,6 @@ class PayrollRunDetailController extends Controller
         ]);
     }
 
-    /**
-     * Helper function để tìm component theo tên
-     */
     private function findComponentByName($componentValues, $names)
     {
         foreach ($componentValues as $data) {

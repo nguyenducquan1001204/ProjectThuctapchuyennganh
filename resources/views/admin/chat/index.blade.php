@@ -952,7 +952,8 @@
             // Thêm timezone vào string để JavaScript parse đúng
             const updatedDate = new Date(conversation.updatedat.replace(' ', 'T') + '+07:00');
             const time = updatedDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
-            const date = updatedDate.toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
+            const date = updatedDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
+            const dateTime = `${date} ${time}`;
             
             const conversationHtml = `
                 <li class="conversation-item ${activeClass}" data-conversation-id="${conversation.conversationid}">
@@ -967,7 +968,7 @@
                             <p class="conversation-preview">${escapeHtml(conversation.last_message || 'Chưa có tin nhắn')}</p>
                         </div>
                         <div class="conversation-meta">
-                            <span class="conversation-time">${time}</span>
+                            <span class="conversation-time">${dateTime}</span>
                         </div>
                     </a>
                     <a href="#" class="btn btn-danger btn-sm rounded-pill text-white conversation-delete-btn" 

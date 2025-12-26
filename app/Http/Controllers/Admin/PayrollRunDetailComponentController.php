@@ -11,29 +11,22 @@ use Illuminate\Support\Facades\Validator;
 
 class PayrollRunDetailComponentController extends Controller
 {
-    /**
-     * Hiển thị danh sách chi tiết thành phần trong bảng lương
-     */
     public function index(Request $request)
     {
         $query = PayrollRunDetailComponent::with(['detail.teacher', 'component']);
 
-        // Tìm kiếm theo mã chi tiết thành phần
         if ($request->filled('search_id')) {
             $query->where('detailcomponentid', $request->search_id);
         }
 
-        // Tìm kiếm theo chi tiết bảng lương
         if ($request->filled('search_detailid')) {
             $query->where('detailid', $request->search_detailid);
         }
 
-        // Tìm kiếm theo thành phần lương
         if ($request->filled('search_componentid')) {
             $query->where('componentid', $request->search_componentid);
         }
 
-        // Tìm kiếm theo số tiền (từ - đến)
         if ($request->filled('search_calculatedamount_from')) {
             $query->where('calculatedamount', '>=', $request->search_calculatedamount_from);
         }
@@ -43,20 +36,15 @@ class PayrollRunDetailComponentController extends Controller
 
         $payrollRunDetailComponents = $query->orderBy('detailcomponentid', 'desc')->get();
 
-        // Lấy danh sách chi tiết bảng lương cho dropdown
         $allPayrollRunDetails = PayrollRunDetail::with(['payrollRun.unit', 'teacher'])
             ->orderBy('detailid', 'desc')
             ->get();
 
-        // Lấy danh sách thành phần lương cho dropdown
         $allComponents = PayrollComponent::orderBy('componentname', 'asc')->get();
 
         return view('admin.payrollrundetailcomponents.index', compact('payrollRunDetailComponents', 'allPayrollRunDetails', 'allComponents'));
     }
 
-    /**
-     * Validation rules
-     */
     private function getValidationRules(): array
     {
         return [
@@ -89,9 +77,6 @@ class PayrollRunDetailComponentController extends Controller
         ];
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -111,9 +96,6 @@ class PayrollRunDetailComponentController extends Controller
         ];
     }
 
-    /**
-     * Lưu chi tiết thành phần mới
-     */
     public function store(Request $request)
     {
         $validator = Validator::make(
@@ -124,7 +106,6 @@ class PayrollRunDetailComponentController extends Controller
 
         $validated = $validator->validate();
 
-        // Chuyển đổi các giá trị số
         $validated['detailid'] = (int)$validated['detailid'];
         $validated['componentid'] = (int)$validated['componentid'];
         $validated['calculatedamount'] = (float)$validated['calculatedamount'];
@@ -142,9 +123,6 @@ class PayrollRunDetailComponentController extends Controller
             ->with('success', 'Thêm chi tiết thành phần lương thành công!');
     }
 
-    /**
-     * Cập nhật chi tiết thành phần
-     */
     public function update(Request $request, $id)
     {
         $payrollRunDetailComponent = PayrollRunDetailComponent::findOrFail($id);
@@ -157,7 +135,6 @@ class PayrollRunDetailComponentController extends Controller
 
         $validated = $validator->validate();
 
-        // Chuyển đổi các giá trị số
         $validated['detailid'] = (int)$validated['detailid'];
         $validated['componentid'] = (int)$validated['componentid'];
         $validated['calculatedamount'] = (float)$validated['calculatedamount'];
@@ -175,9 +152,6 @@ class PayrollRunDetailComponentController extends Controller
             ->with('success', 'Cập nhật chi tiết thành phần lương thành công!');
     }
 
-    /**
-     * Xóa chi tiết thành phần
-     */
     public function destroy($id)
     {
         $payrollRunDetailComponent = PayrollRunDetailComponent::findOrFail($id);

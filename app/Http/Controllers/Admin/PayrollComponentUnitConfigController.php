@@ -12,34 +12,26 @@ use Illuminate\Validation\Rule;
 
 class PayrollComponentUnitConfigController extends Controller
 {
-    /**
-     * Hiển thị danh sách cấu hình thành phần lương theo đơn vị
-     */
     public function index(Request $request)
     {
         $query = PayrollComponentUnitConfig::with(['component', 'unit']);
 
-        // Tìm kiếm theo mã cấu hình
         if ($request->filled('search_id')) {
             $query->where('unitconfigid', $request->search_id);
         }
 
-        // Tìm kiếm theo đơn vị
         if ($request->filled('search_unitid')) {
             $query->where('unitid', $request->search_unitid);
         }
 
-        // Tìm kiếm theo thành phần lương
         if ($request->filled('search_componentid')) {
             $query->where('componentid', $request->search_componentid);
         }
 
-        // Tìm kiếm theo ngày hiệu lực
         if ($request->filled('search_effectivedate')) {
             $query->whereDate('effectivedate', $request->search_effectivedate);
         }
 
-        // Tìm kiếm theo trạng thái (đang hiệu lực / đã hết hạn)
         if ($request->filled('search_status')) {
             if ($request->search_status === 'active') {
                 $query->whereNull('expirationdate');
@@ -51,16 +43,12 @@ class PayrollComponentUnitConfigController extends Controller
 
         $configs = $query->orderBy('unitconfigid', 'asc')->get();
 
-        // Lấy danh sách đơn vị và thành phần lương cho dropdown
         $allUnits = BudgetSpendingUnit::orderBy('unitname', 'asc')->get();
         $allComponents = PayrollComponent::orderBy('componentname', 'asc')->get();
 
         return view('admin.payrollcomponentunitconfigs.index', compact('configs', 'allUnits', 'allComponents'));
     }
 
-    /**
-     * Lấy thông tin component theo ID (API)
-     */
     public function getComponent($id)
     {
         $component = PayrollComponent::find($id);
@@ -76,9 +64,6 @@ class PayrollComponentUnitConfigController extends Controller
         ]);
     }
 
-    /**
-     * Lấy danh sách component đã được cấu hình cho đơn vị (đang hiệu lực) - API
-     */
     public function getUsedComponents($unitId)
     {
         $usedComponentIds = PayrollComponentUnitConfig::where('unitid', $unitId)
@@ -93,9 +78,6 @@ class PayrollComponentUnitConfigController extends Controller
         ]);
     }
 
-    /**
-     * Validation rules
-     */
     private function getValidationRules($ignoreId = null): array
     {
         $rules = [
@@ -138,7 +120,6 @@ class PayrollComponentUnitConfigController extends Controller
             'note' => 'nullable|string|max:65535',
         ];
 
-        // Unique constraint: unitid + componentid + effectivedate
         if ($ignoreId) {
             $rules['effectivedate'][] = Rule::unique('payrollcomponentunitconfig', 'effectivedate')
                 ->where('unitid', request('unitid'))
@@ -153,9 +134,6 @@ class PayrollComponentUnitConfigController extends Controller
         return $rules;
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -179,9 +157,6 @@ class PayrollComponentUnitConfigController extends Controller
         ];
     }
 
-    /**
-     * Lưu cấu hình mới
-     */
     public function store(Request $request)
     {
         $validator = Validator::make(
@@ -190,7 +165,6 @@ class PayrollComponentUnitConfigController extends Controller
             $this->getValidationMessages()
         );
 
-        // Kiểm tra logic: phải có ít nhất 1 trong 3 giá trị điều chỉnh (coefficient, percentage, fixed)
         $validator->after(function ($validator) use ($request) {
             $component = PayrollComponent::find($request->componentid);
             if (!$component) {
@@ -221,7 +195,6 @@ class PayrollComponentUnitConfigController extends Controller
 
         $validated = $validator->validate();
 
-        // Tự động đóng cấu hình cũ nếu có (set expirationdate = effectivedate - 1 ngày)
         if ($request->filled('unitid') && $request->filled('componentid') && $request->filled('effectivedate')) {
             PayrollComponentUnitConfig::where('unitid', $request->unitid)
                 ->where('componentid', $request->componentid)
@@ -238,9 +211,6 @@ class PayrollComponentUnitConfigController extends Controller
             ->with('success', 'Thêm cấu hình thành phần lương theo đơn vị thành công!');
     }
 
-    /**
-     * Cập nhật cấu hình
-     */
     public function update(Request $request, $id)
     {
         $config = PayrollComponentUnitConfig::findOrFail($id);
@@ -251,7 +221,6 @@ class PayrollComponentUnitConfigController extends Controller
             $this->getValidationMessages()
         );
 
-        // Kiểm tra logic tương tự store
         $validator->after(function ($validator) use ($request) {
             $component = PayrollComponent::find($request->componentid);
             if (!$component) {
@@ -288,14 +257,9 @@ class PayrollComponentUnitConfigController extends Controller
             ->with('success', 'Cập nhật cấu hình thành phần lương theo đơn vị thành công!');
     }
 
-    /**
-     * Xóa cấu hình
-     */
     public function destroy($id)
     {
         $config = PayrollComponentUnitConfig::findOrFail($id);
-
-        // TODO: Kiểm tra quan hệ với bảng payroll trước khi cho phép xóa
 
         $config->delete();
 

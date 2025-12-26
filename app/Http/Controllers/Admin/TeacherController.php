@@ -15,52 +15,40 @@ use Illuminate\Support\Facades\Log;
 
 class TeacherController extends Controller
 {
-    /**
-     * Hiển thị danh sách giáo viên
-     */
     public function index(Request $request)
     {
         $query = Teacher::with(['jobTitle', 'unit']);
         
-        // Tìm kiếm theo ID
         if ($request->filled('search_id')) {
             $query->where('teacherid', $request->search_id);
         }
         
-        // Tìm kiếm theo tên
         if ($request->filled('search_name')) {
             $query->where('fullname', 'like', '%' . $request->search_name . '%');
         }
         
-        // Tìm kiếm theo chức danh
         if ($request->filled('search_jobtitle')) {
             $query->whereHas('jobTitle', function($q) use ($request) {
                 $q->where('jobtitlename', 'like', '%' . $request->search_jobtitle . '%');
             });
         }
         
-        // Tìm kiếm theo giới tính
         if ($request->filled('search_gender')) {
             $query->where('gender', $request->search_gender);
         }
         
-        // Tìm kiếm theo trạng thái
         if ($request->filled('search_status')) {
             $query->where('status', $request->search_status);
         }
         
         $teachers = $query->orderBy('teacherid', 'asc')->get();
         
-        // Lấy danh sách chức danh và đơn vị cho dropdown
         $jobTitles = JobTitle::orderBy('jobtitlename', 'asc')->get();
         $units = BudgetSpendingUnit::orderBy('unitname', 'asc')->get();
         
         return view('admin.teachers.index', compact('teachers', 'jobTitles', 'units'));
     }
 
-    /**
-     * Validation rules cho giáo viên
-     */
     private function getValidationRules($ignoreId = null): array
     {
         return [
@@ -69,17 +57,14 @@ class TeacherController extends Controller
                 'string',
                 'max:255',
                 'min:3',
-                'regex:/^[\p{L}\s]+$/u', // Chỉ cho phép chữ cái và khoảng trắng
+                'regex:/^[\p{L}\s]+$/u',
                 function ($attribute, $value, $fail) {
-                    // Kiểm tra phải có ít nhất một khoảng trắng (có cả họ và tên)
                     if (trim($value) && !preg_match('/\s+/', trim($value))) {
                         $fail('Họ và tên phải bao gồm cả họ và tên (có khoảng trắng).');
                     }
-                    // Kiểm tra không được có nhiều khoảng trắng liên tiếp
                     if (preg_match('/\s{2,}/', $value)) {
                         $fail('Họ và tên không được có nhiều khoảng trắng liên tiếp.');
                     }
-                    // Kiểm tra mỗi từ phải có ít nhất 1 ký tự
                     $words = preg_split('/\s+/', trim($value));
                     foreach ($words as $word) {
                         if (mb_strlen($word) < 1) {
@@ -92,7 +77,7 @@ class TeacherController extends Controller
             'birthdate' => [
                 'nullable',
                 'date',
-                'before:' . now()->subYears(22)->format('Y-m-d'), // Phải đủ 22 tuổi
+                'before:' . now()->subYears(22)->format('Y-m-d'),
             ],
             'gender' => [
                 'nullable',
@@ -117,7 +102,7 @@ class TeacherController extends Controller
                 'numeric',
                 'min:1',
                 'max:10',
-                'regex:/^\d{1,2}(\.\d{1,2})?$/', // Định dạng: 1-10, có thể có 1-2 chữ số thập phân
+                'regex:/^\d{1,2}(\.\d{1,2})?$/',
             ],
             'status' => [
                 'required',
@@ -126,9 +111,6 @@ class TeacherController extends Controller
         ];
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -153,9 +135,6 @@ class TeacherController extends Controller
         ];
     }
 
-    /**
-     * Lưu giáo viên mới
-     */
     public function store(Request $request)
     {
         $request->merge([
@@ -177,7 +156,6 @@ class TeacherController extends Controller
 
         $teacher = Teacher::create($validated);
 
-        // Nếu có hệ số lương khi tạo mới, tự động ghi lịch sử
         if ($newCoefficient !== null) {
             $history = [[
                 'coefficient' => (float)$newCoefficient,
@@ -190,7 +168,6 @@ class TeacherController extends Controller
             $teacher->save();
         }
 
-        // Nếu có chức danh khi tạo mới, tự động ghi lịch sử
         if ($teacher->jobtitleid !== null) {
             $jobTitle = JobTitle::find($teacher->jobtitleid);
             $jobTitleName = $jobTitle ? $jobTitle->jobtitlename : '';
@@ -199,7 +176,7 @@ class TeacherController extends Controller
                 'teacherid' => $teacher->teacherid,
                 'jobtitleid' => $teacher->jobtitleid,
                 'effectivedate' => $teacher->startdate ?? Carbon::today(),
-                'expiredate' => null, // Chưa kết thúc
+                'expiredate' => null,
                 'note' => $jobTitleName ? "Chức danh đầu tiên: {$jobTitleName}" : 'Tự động ghi khi thêm giáo viên mới',
             ]);
         }
@@ -208,14 +185,10 @@ class TeacherController extends Controller
             ->with('success', 'Thêm giáo viên thành công!');
     }
 
-    /**
-     * Cập nhật giáo viên
-     */
     public function update(Request $request, $id)
     {
         $teacher = Teacher::findOrFail($id);
         
-        // Lưu các giá trị cũ để so sánh
         $oldJobTitleId = $teacher->jobtitleid;
         $oldCoefficient = $teacher->currentcoefficient;
 
@@ -241,7 +214,6 @@ class TeacherController extends Controller
         $newJobTitleId = $validated['jobtitleid'] ?? null;
         $newCoefficient = $validated['currentcoefficient'] ?? null;
 
-        // Kiểm tra hệ số lương có thay đổi không
         $coefficientChanged = false;
         if ($oldCoefficient != $newCoefficient && $newCoefficient !== null) {
             $coefficientChanged = true;
@@ -249,7 +221,6 @@ class TeacherController extends Controller
 
         $teacher->update($validated);
 
-        // Nếu hệ số lương thay đổi, tự động ghi lịch sử
         if ($coefficientChanged) {
             $note = '';
             if ($oldCoefficient !== null) {
@@ -258,10 +229,8 @@ class TeacherController extends Controller
                 $note = "Hệ số lương ban đầu: {$newCoefficient}";
             }
 
-            // Thêm vào lịch sử
             $history = $teacher->coefficient_history ?? [];
             
-            // Đóng bản ghi cũ (nếu có)
             if (!empty($history)) {
                 foreach ($history as &$record) {
                     if (!isset($record['expiredate']) || $record['expiredate'] === null) {
@@ -270,7 +239,6 @@ class TeacherController extends Controller
                 }
             }
 
-            // Thêm bản ghi mới
             $history[] = [
                 'coefficient' => (float)$newCoefficient,
                 'effectivedate' => Carbon::today()->format('Y-m-d'),
@@ -282,21 +250,17 @@ class TeacherController extends Controller
             $teacher->save();
         }
 
-        // Nếu chức danh thay đổi, tự động ghi lịch sử
         if ($oldJobTitleId != $newJobTitleId && $newJobTitleId !== null) {
-            // Lấy tên chức danh cũ và mới
             $oldJobTitle = $oldJobTitleId ? JobTitle::find($oldJobTitleId) : null;
             $newJobTitle = JobTitle::find($newJobTitleId);
             
             $oldJobTitleName = $oldJobTitle ? $oldJobTitle->jobtitlename : '';
             $newJobTitleName = $newJobTitle ? $newJobTitle->jobtitlename : '';
             
-            // Đóng bản ghi lịch sử cũ (nếu có) bằng cách set expiredate = hôm nay
             TeacherJobTitleHistory::where('teacherid', $teacher->teacherid)
                 ->whereNull('expiredate')
                 ->update(['expiredate' => Carbon::today()]);
             
-            // Tạo ghi chú mô tả thay đổi
             $note = '';
             if ($oldJobTitleId && $oldJobTitleName && $newJobTitleName) {
                 $note = "Đổi từ {$oldJobTitleName} sang {$newJobTitleName}";
@@ -306,12 +270,11 @@ class TeacherController extends Controller
                 $note = 'Tự động ghi khi cập nhật chức danh trong quản lý giáo viên';
             }
             
-            // Tạo bản ghi lịch sử mới
             TeacherJobTitleHistory::create([
                 'teacherid' => $teacher->teacherid,
                 'jobtitleid' => $newJobTitleId,
                 'effectivedate' => Carbon::today(),
-                'expiredate' => null, // Chưa kết thúc
+                'expiredate' => null,
                 'note' => $note,
             ]);
         }
@@ -320,14 +283,9 @@ class TeacherController extends Controller
             ->with('success', 'Cập nhật giáo viên thành công!');
     }
 
-    /**
-     * Xóa giáo viên
-     */
     public function destroy($id)
     {
         $teacher = Teacher::findOrFail($id);
-        
-        // TODO: Kiểm tra quan hệ với các bảng khác trước khi xóa
         
         $teacher->delete();
 
@@ -335,9 +293,6 @@ class TeacherController extends Controller
             ->with('success', 'Xóa giáo viên thành công!');
     }
 
-    /**
-     * Lấy lịch sử hệ số lương của giáo viên (API)
-     */
     public function getCoefficientHistory($id)
     {
         $teacher = Teacher::findOrFail($id);

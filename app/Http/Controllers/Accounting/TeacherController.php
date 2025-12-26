@@ -253,9 +253,9 @@ class TeacherController extends Controller
         if ($coefficientChanged) {
             $note = '';
             if ($oldCoefficient !== null) {
-                $note = "Thay đổi từ {$oldCoefficient} sang {$newCoefficient}";
+                $note = "Thay đổi từ " . (string)$oldCoefficient . " sang " . (string)$newCoefficient;
             } else {
-                $note = "Hệ số lương ban đầu: {$newCoefficient}";
+                $note = "Hệ số lương ban đầu: " . (string)$newCoefficient;
             }
 
             // Thêm vào lịch sử

@@ -745,7 +745,7 @@
 
                 const avatarImg = document.getElementById('view_avatar');
                 if (avatarImg) {
-                    avatarImg.src = btn.dataset.avatarUrl || '{{ asset('assets/img/cropped_circle_image.png') }}';
+                    avatarImg.src = btn.dataset.avatarUrl || "{{ asset('assets/img/cropped_circle_image.png') }}";
                 }
             }
         });

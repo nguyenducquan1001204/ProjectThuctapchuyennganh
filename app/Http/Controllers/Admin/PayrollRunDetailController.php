@@ -16,29 +16,22 @@ use Carbon\Carbon;
 
 class PayrollRunDetailController extends Controller
 {
-    /**
-     * Hiển thị danh sách chi tiết bảng lương từng giáo viên
-     */
     public function index(Request $request)
     {
         $query = PayrollRunDetail::with(['payrollRun.unit', 'teacher.jobTitle']);
 
-        // Tìm kiếm theo mã chi tiết
         if ($request->filled('search_id')) {
             $query->where('detailid', $request->search_id);
         }
 
-        // Tìm kiếm theo bảng lương
         if ($request->filled('search_payrollrunid')) {
             $query->where('payrollrunid', $request->search_payrollrunid);
         }
 
-        // Tìm kiếm theo giáo viên
         if ($request->filled('search_teacherid')) {
             $query->where('teacherid', $request->search_teacherid);
         }
 
-        // Tìm kiếm theo tổng thu nhập (từ - đến)
         if ($request->filled('search_totalincome_from')) {
             $query->where('totalincome', '>=', $request->search_totalincome_from);
         }
@@ -48,20 +41,15 @@ class PayrollRunDetailController extends Controller
 
         $payrollRunDetails = $query->orderBy('detailid', 'desc')->get();
 
-        // Lấy danh sách bảng lương cho dropdown
         $allPayrollRuns = PayrollRun::with('unit')
             ->orderBy('payrollrunid', 'desc')
             ->get();
 
-        // Lấy danh sách giáo viên cho dropdown
         $allTeachers = Teacher::orderBy('fullname', 'asc')->get();
 
         return view('admin.payrollrundetails.index', compact('payrollRunDetails', 'allPayrollRuns', 'allTeachers'));
     }
 
-    /**
-     * Validation rules
-     */
     private function getValidationRules($ignoreId = null): array
     {
         $rules = [
@@ -102,7 +90,6 @@ class PayrollRunDetailController extends Controller
             'note' => 'nullable|string|max:65535',
         ];
 
-        // Unique constraint: payrollrunid + teacherid
         if ($ignoreId) {
             $rules['teacherid'][] = Rule::unique('payrollrundetail', 'teacherid')
                 ->where('payrollrunid', request('payrollrunid'))
@@ -115,9 +102,6 @@ class PayrollRunDetailController extends Controller
         return $rules;
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -145,9 +129,6 @@ class PayrollRunDetailController extends Controller
         ];
     }
 
-    /**
-     * Lưu chi tiết bảng lương mới
-     */
     public function store(Request $request)
     {
         $validator = Validator::make(
@@ -158,7 +139,6 @@ class PayrollRunDetailController extends Controller
 
         $validated = $validator->validate();
 
-        // Chuyển đổi các giá trị số
         $validated['payrollrunid'] = (int)$validated['payrollrunid'];
         $validated['teacherid'] = (int)$validated['teacherid'];
         $validated['totalincome'] = (float)$validated['totalincome'];
@@ -173,9 +153,6 @@ class PayrollRunDetailController extends Controller
             ->with('success', 'Thêm chi tiết bảng lương thành công!');
     }
 
-    /**
-     * Cập nhật chi tiết bảng lương
-     */
     public function update(Request $request, $id)
     {
         $payrollRunDetail = PayrollRunDetail::findOrFail($id);
@@ -188,7 +165,6 @@ class PayrollRunDetailController extends Controller
 
         $validated = $validator->validate();
 
-        // Chuyển đổi các giá trị số
         $validated['payrollrunid'] = (int)$validated['payrollrunid'];
         $validated['teacherid'] = (int)$validated['teacherid'];
         $validated['totalincome'] = (float)$validated['totalincome'];
@@ -203,14 +179,10 @@ class PayrollRunDetailController extends Controller
             ->with('success', 'Cập nhật chi tiết bảng lương thành công!');
     }
 
-    /**
-     * Xóa chi tiết bảng lương
-     */
     public function destroy($id)
     {
         $payrollRunDetail = PayrollRunDetail::findOrFail($id);
 
-        // Xóa các chi tiết thành phần trước
         $payrollRunDetail->components()->delete();
 
         $payrollRunDetail->delete();
@@ -219,9 +191,6 @@ class PayrollRunDetailController extends Controller
             ->with('success', 'Xóa chi tiết bảng lương thành công!');
     }
 
-    /**
-     * Lấy chi tiết tính toán cho một payrollrundetail
-     */
     public function getCalculationDetails($id)
     {
         $detail = PayrollRunDetail::with(['payrollRun.baseSalary', 'teacher', 'components.component'])->findOrFail($id);
@@ -240,12 +209,10 @@ class PayrollRunDetailController extends Controller
         $baseSalaryAmount = $baseSalary ? $baseSalary->basesalaryamount : 0;
         $teacherCoefficient = $teacher->currentcoefficient ?? 0;
 
-        // Lấy ngày hiệu lực
         $payrollPeriod = $payrollRun->payrollperiod;
         $periodEnd = $payrollPeriod . '-01';
         $periodEnd = Carbon::parse($periodEnd)->endOfMonth()->format('Y-m-d');
 
-        // Lấy các thành phần lương từ teacherpayrollcomponent
         $teacherComponents = TeacherPayrollComponent::where('teacherid', $teacher->teacherid)
             ->where('effectivedate', '<=', $periodEnd)
             ->where(function($query) use ($payrollPeriod) {
@@ -256,7 +223,6 @@ class PayrollRunDetailController extends Controller
             ->with('component')
             ->get();
 
-        // Tạo mảng component values
         $componentValues = [];
         foreach ($teacherComponents as $teacherComponent) {
             $component = $teacherComponent->component;
@@ -265,7 +231,6 @@ class PayrollRunDetailController extends Controller
             $coefficient = $teacherComponent->adjustcustomcoefficient ?? 0;
             $percentage = $teacherComponent->adjustcustompercentage ?? 0;
 
-            // Đặc biệt: Nếu là "Lương ngạch bậc", lấy từ teacher.currentcoefficient
             if (stripos($component->componentname, 'lương ngạch bậc') !== false && $teacherCoefficient) {
                 $coefficient = $teacherCoefficient;
             }
@@ -281,7 +246,6 @@ class PayrollRunDetailController extends Controller
             ];
         }
 
-        // Tìm các thành phần cần thiết
         $phuCapChucVu = $this->findComponentByName($componentValues, ['Phụ cấp chức vụ', 'phụ cấp chức vụ']);
         $phuCapVuotKhung = $this->findComponentByName($componentValues, ['Phụ cấp vượt khung', 'phụ cấp vượt khung']);
         $phuCapUuDai = $this->findComponentByName($componentValues, ['Phụ cấp ưu đãi', 'phụ cấp ưu đãi']);
@@ -289,17 +253,14 @@ class PayrollRunDetailController extends Controller
         $phuCapTrachNhiem = $this->findComponentByName($componentValues, ['Phụ cấp trách nhiệm', 'phụ cấp trách nhiệm']);
         $phuCapDocHai = $this->findComponentByName($componentValues, ['Phụ cấp độc hại', 'phụ cấp độc hại']);
 
-        // Lấy giá trị HỆ SỐ
         $phuCapChucVuHeSo = $phuCapChucVu ? $phuCapChucVu['value']['coefficient'] : 0;
         $phuCapVuotKhungHeSo = $phuCapVuotKhung ? $phuCapVuotKhung['value']['coefficient'] : 0;
         $phuCapTrachNhiemHeSo = $phuCapTrachNhiem ? $phuCapTrachNhiem['value']['coefficient'] : 0;
         $phuCapDocHaiHeSo = $phuCapDocHai ? $phuCapDocHai['value']['coefficient'] : 0;
 
-        // Lấy giá trị TỶ LỆ
         $phuCapUuDaiTyLe = $phuCapUuDai ? ($phuCapUuDai['value']['percentage'] ?? 0) : 0;
         $phuCapThamNienTyLe = $phuCapThamNien ? ($phuCapThamNien['value']['percentage'] ?? 0) : 0;
 
-        // Tính Hệ số phụ cấp
         $heSoPhuCap = 0;
         if ($phuCapUuDai) {
             $tongHeSoChoPhuCap = $teacherCoefficient + $phuCapChucVuHeSo + $phuCapVuotKhungHeSo;
@@ -307,7 +268,6 @@ class PayrollRunDetailController extends Controller
             $heSoPhuCap = $tongHeSoChoPhuCap * $tyLeValue;
         }
 
-        // Tính Hệ số phụ cấp thâm niên
         $heSoPhuCapThamNien = 0;
         if ($phuCapThamNien) {
             $tongHeSoChoPhuCap = $teacherCoefficient + $phuCapChucVuHeSo + $phuCapVuotKhungHeSo;
@@ -315,7 +275,6 @@ class PayrollRunDetailController extends Controller
             $heSoPhuCapThamNien = $tongHeSoChoPhuCap * $tyLeValue;
         }
 
-        // Tính Tổng hệ số
         $tongHeSo = $teacherCoefficient
             + $phuCapChucVuHeSo
             + $phuCapVuotKhungHeSo
@@ -324,22 +283,18 @@ class PayrollRunDetailController extends Controller
             + $heSoPhuCap
             + $heSoPhuCapThamNien;
 
-        // Tính Quỹ lương phụ cấp 01 tháng
         $quyLuongPhuCap = $tongHeSo * $baseSalaryAmount;
 
-        // Tính các khoản trừ
         $tongHeSoChoTru = $teacherCoefficient
             + $phuCapChucVuHeSo
             + $phuCapVuotKhungHeSo
             + $heSoPhuCapThamNien;
         $quyLuongChoTru = $tongHeSoChoTru * $baseSalaryAmount;
 
-        // Lấy các thành phần bảo hiểm
         $bhxhNhanVien = $this->findComponentByName($componentValues, ['BHXH nhân viên', 'bhxh nhân viên']);
         $bhytNhanVien = $this->findComponentByName($componentValues, ['BHYT nhân viên', 'bhyt nhân viên']);
         $bhtnNhanVien = $this->findComponentByName($componentValues, ['BHTN nhân viên', 'bhtn nhân viên']);
 
-        // Tính các khoản trừ
         $bhxhPercentageRaw = $bhxhNhanVien ? ($bhxhNhanVien['value']['percentage'] ?? 0) : 0;
         $bhxhPercentage = $bhxhPercentageRaw >= 1 ? $bhxhPercentageRaw / 100 : $bhxhPercentageRaw / 10;
         $tienTruBHXH = $quyLuongChoTru * $bhxhPercentage;
@@ -354,13 +309,11 @@ class PayrollRunDetailController extends Controller
 
         $tongTruNhanVien = $tienTruBHXH + $tienTruBHYT + $tienTruBHTN;
 
-        // Lấy các thành phần ngân sách
         $bhxhDonVi = $this->findComponentByName($componentValues, ['BHXH đơn vị', 'bhxh đơn vị']);
         $bhytDonVi = $this->findComponentByName($componentValues, ['BHYT đơn vị', 'bhyt đơn vị']);
         $bhtnDonVi = $this->findComponentByName($componentValues, ['BHTN đơn vị', 'bhtn đơn vị']);
         $bhtnTuNganSach = $this->findComponentByName($componentValues, ['BHTN từ ngân sách', 'bhtn từ ngân sách']);
 
-        // Tính các khoản ngân sách
         $bhxhDonViPercentageRaw = $bhxhDonVi ? ($bhxhDonVi['value']['percentage'] ?? 0) : 0;
         $bhxhDonViPercentage = $bhxhDonViPercentageRaw >= 1 ? $bhxhDonViPercentageRaw / 100 : $bhxhDonViPercentageRaw / 10;
         $nganSachBHXH = $quyLuongChoTru * $bhxhDonViPercentage;
@@ -379,7 +332,6 @@ class PayrollRunDetailController extends Controller
 
         $tongNganSach = $nganSachBHXH + $nganSachBHYT + $nganSachBHTN + $nganSachBHTNTuNS;
 
-        // Lấy danh sách components từ payrollrundetailcomponent
         $components = PayrollRunDetailComponent::where('detailid', $detail->detailid)
             ->with('component')
             ->get()
@@ -438,9 +390,6 @@ class PayrollRunDetailController extends Controller
         ]);
     }
 
-    /**
-     * Helper function để tìm component theo tên
-     */
     private function findComponentByName($componentValues, $names)
     {
         foreach ($componentValues as $data) {
@@ -454,9 +403,6 @@ class PayrollRunDetailController extends Controller
         return null;
     }
 
-    /**
-     * Helper method để tính toán chi tiết cho một giáo viên
-     */
     private function calculateTeacherDetails($detail, $payrollRun)
     {
         $teacher = $detail->teacher;
@@ -468,12 +414,10 @@ class PayrollRunDetailController extends Controller
         $baseSalaryAmount = $baseSalary ? $baseSalary->basesalaryamount : 0;
         $teacherCoefficient = $teacher->currentcoefficient ?? 0;
 
-        // Lấy ngày hiệu lực
         $payrollPeriod = $payrollRun->payrollperiod;
         $periodEnd = $payrollPeriod . '-01';
         $periodEnd = Carbon::parse($periodEnd)->endOfMonth()->format('Y-m-d');
 
-        // Lấy các thành phần lương từ teacherpayrollcomponent
         $teacherComponents = TeacherPayrollComponent::where('teacherid', $teacher->teacherid)
             ->where('effectivedate', '<=', $periodEnd)
             ->where(function($query) use ($payrollPeriod) {
@@ -484,7 +428,6 @@ class PayrollRunDetailController extends Controller
             ->with('component')
             ->get();
 
-        // Tạo mảng component values
         $componentValues = [];
         foreach ($teacherComponents as $teacherComponent) {
             $component = $teacherComponent->component;
@@ -508,7 +451,6 @@ class PayrollRunDetailController extends Controller
             ];
         }
 
-        // Tìm các thành phần
         $phuCapChucVu = $this->findComponentByName($componentValues, ['Phụ cấp chức vụ', 'phụ cấp chức vụ']);
         $phuCapVuotKhung = $this->findComponentByName($componentValues, ['Phụ cấp vượt khung', 'phụ cấp vượt khung']);
         $phuCapUuDai = $this->findComponentByName($componentValues, ['Phụ cấp ưu đãi', 'phụ cấp ưu đãi']);
@@ -516,17 +458,14 @@ class PayrollRunDetailController extends Controller
         $phuCapTrachNhiem = $this->findComponentByName($componentValues, ['Phụ cấp trách nhiệm', 'phụ cấp trách nhiệm']);
         $phuCapDocHai = $this->findComponentByName($componentValues, ['Phụ cấp độc hại', 'phụ cấp độc hại']);
 
-        // Lấy giá trị HỆ SỐ
         $phuCapChucVuHeSo = $phuCapChucVu ? $phuCapChucVu['value']['coefficient'] : 0;
         $phuCapVuotKhungHeSo = $phuCapVuotKhung ? $phuCapVuotKhung['value']['coefficient'] : 0;
         $phuCapTrachNhiemHeSo = $phuCapTrachNhiem ? $phuCapTrachNhiem['value']['coefficient'] : 0;
         $phuCapDocHaiHeSo = $phuCapDocHai ? $phuCapDocHai['value']['coefficient'] : 0;
 
-        // Lấy giá trị TỶ LỆ
         $phuCapUuDaiTyLe = $phuCapUuDai ? ($phuCapUuDai['value']['percentage'] ?? 0) : 0;
         $phuCapThamNienTyLe = $phuCapThamNien ? ($phuCapThamNien['value']['percentage'] ?? 0) : 0;
 
-        // Tính Hệ số phụ cấp
         $heSoPhuCap = 0;
         if ($phuCapUuDai) {
             $tongHeSoChoPhuCap = $teacherCoefficient + $phuCapChucVuHeSo + $phuCapVuotKhungHeSo;
@@ -534,7 +473,6 @@ class PayrollRunDetailController extends Controller
             $heSoPhuCap = $tongHeSoChoPhuCap * $tyLeValue;
         }
 
-        // Tính Hệ số phụ cấp thâm niên
         $heSoPhuCapThamNien = 0;
         if ($phuCapThamNien) {
             $tongHeSoChoPhuCap = $teacherCoefficient + $phuCapChucVuHeSo + $phuCapVuotKhungHeSo;
@@ -542,7 +480,6 @@ class PayrollRunDetailController extends Controller
             $heSoPhuCapThamNien = $tongHeSoChoPhuCap * $tyLeValue;
         }
 
-        // Tính Tổng hệ số
         $tongHeSo = $teacherCoefficient
             + $phuCapChucVuHeSo
             + $phuCapVuotKhungHeSo
@@ -551,22 +488,18 @@ class PayrollRunDetailController extends Controller
             + $heSoPhuCap
             + $heSoPhuCapThamNien;
 
-        // Tính Quỹ lương phụ cấp 01 tháng
         $quyLuongPhuCap = $tongHeSo * $baseSalaryAmount;
 
-        // Tính các khoản trừ
         $tongHeSoChoTru = $teacherCoefficient
             + $phuCapChucVuHeSo
             + $phuCapVuotKhungHeSo
             + $heSoPhuCapThamNien;
         $quyLuongChoTru = $tongHeSoChoTru * $baseSalaryAmount;
 
-        // Lấy các thành phần bảo hiểm
         $bhxhNhanVien = $this->findComponentByName($componentValues, ['BHXH nhân viên', 'bhxh nhân viên']);
         $bhytNhanVien = $this->findComponentByName($componentValues, ['BHYT nhân viên', 'bhyt nhân viên']);
         $bhtnNhanVien = $this->findComponentByName($componentValues, ['BHTN nhân viên', 'bhtn nhân viên']);
 
-        // Tính các khoản trừ
         $bhxhPercentageRaw = $bhxhNhanVien ? ($bhxhNhanVien['value']['percentage'] ?? 0) : 0;
         $bhxhPercentage = $bhxhPercentageRaw >= 1 ? $bhxhPercentageRaw / 100 : $bhxhPercentageRaw / 10;
         $tienTruBHXH = $quyLuongChoTru * $bhxhPercentage;
@@ -581,13 +514,11 @@ class PayrollRunDetailController extends Controller
 
         $tongTruNhanVien = $tienTruBHXH + $tienTruBHYT + $tienTruBHTN;
 
-        // Lấy các thành phần ngân sách
         $bhxhDonVi = $this->findComponentByName($componentValues, ['BHXH đơn vị', 'bhxh đơn vị']);
         $bhytDonVi = $this->findComponentByName($componentValues, ['BHYT đơn vị', 'bhyt đơn vị']);
         $bhtnDonVi = $this->findComponentByName($componentValues, ['BHTN đơn vị', 'bhtn đơn vị']);
         $bhtnTuNganSach = $this->findComponentByName($componentValues, ['BHTN từ ngân sách', 'bhtn từ ngân sách']);
 
-        // Tính các khoản ngân sách
         $bhxhDonViPercentageRaw = $bhxhDonVi ? ($bhxhDonVi['value']['percentage'] ?? 0) : 0;
         $bhxhDonViPercentage = $bhxhDonViPercentageRaw >= 1 ? $bhxhDonViPercentageRaw / 100 : $bhxhDonViPercentageRaw / 10;
         $nganSachBHXH = $quyLuongChoTru * $bhxhDonViPercentage;
@@ -643,9 +574,6 @@ class PayrollRunDetailController extends Controller
         ];
     }
 
-    /**
-     * Tạo sheet Excel chi tiết với cách tính toán
-     */
     private function generateDetailedCalculationSheet($payrollRunDetails, $payrollRun, $payrollRunTitle)
     {
         $baseSalary = $payrollRun->baseSalary;
@@ -655,17 +583,11 @@ class PayrollRunDetailController extends Controller
         $output = "<Worksheet ss:Name=\"Chi tiết tính toán\">\n";
         $output .= "<Table>\n";
         
-        // Định nghĩa độ rộng các cột - cấu trúc phức tạp với nhiều cột
-        // TT(8), Họ tên(25), Chức danh(15), Hệ số lương(12), P/C chức vụ(12), P/C vượt khung %(10), P/C vượt khung HS(10), 
-        // P/C trách nhiệm(12), P/C độc hại(12), P/C ưu đãi %(10), P/C ưu đãi HS(12), P/C thâm niên %(10), P/C thâm niên HS(12),
-        // Cộng hệ số(12), Quỹ lương(18), Trừ 8% BHXH(15), Trừ 1.5% BHYT(15), Trừ 1% BHTN(15), Thực lĩnh(18),
-        // NS 17% BHXH(15), NS 0.5% BHTN(15), NS 3% BHYT(15), NS 1% BHTN(15), Tổng cộng(18), Ghi chú(30)
         $columnWidths = [20, 80, 70, 50, 30, 60, 60, 50, 12, 30, 30, 10, 30, 50, 18, 15, 15, 15, 18, 15, 15, 15, 15, 18, 30];
         foreach ($columnWidths as $width) {
             $output .= "<Column ss:Width=\"" . $width . "\"/>\n";
         }
         
-        // Header row 1: Tiêu đề chính và thông tin tổng quan (trong cùng 1 ô)
         $titleAndInfo = htmlspecialchars($payrollRunTitle, ENT_XML1, 'UTF-8') . "&#10;" . 
                        htmlspecialchars("Tổng số Biên Chế: " . $totalTeachers . " | Mức lương cơ bản: " . number_format($baseSalaryAmount, 0, ',', ',') . " | Đơn vị tính: Đồng", ENT_XML1, 'UTF-8');
         
@@ -673,14 +595,12 @@ class PayrollRunDetailController extends Controller
         $output .= "<Cell ss:StyleID=\"Title\" ss:MergeAcross=\"24\"><Data ss:Type=\"String\">" . $titleAndInfo . "</Data></Cell>\n";
         $output .= "</Row>\n";
         
-        // Empty row
         $output .= "<Row ss:Height=\"5\">\n";
         for ($i = 0; $i < 25; $i++) {
             $output .= "<Cell/>\n";
         }
         $output .= "</Row>\n";
         
-        // Header row 3: Cột đơn giản
         $output .= "<Row>\n";
         $output .= "<Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">TT</Data></Cell>\n";
         $output .= "<Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">Họ và tên</Data></Cell>\n";
@@ -709,7 +629,6 @@ class PayrollRunDetailController extends Controller
         $output .= "<Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">Ghi chú</Data></Cell>\n";
         $output .= "</Row>\n";
         
-        // Data rows
         $stt = 1;
         foreach ($payrollRunDetails as $detail) {
             $teacher = $detail->teacher;
@@ -722,80 +641,55 @@ class PayrollRunDetailController extends Controller
             
             $output .= "<Row>\n";
             
-            // TT
             $output .= "<Cell ss:StyleID=\"STT\"><Data ss:Type=\"Number\">" . $stt . "</Data></Cell>\n";
             
-            // Họ và tên
             $output .= "<Cell ss:StyleID=\"Cell\"><Data ss:Type=\"String\">" . htmlspecialchars($teacher->fullname ?? '-', ENT_XML1, 'UTF-8') . "</Data></Cell>\n";
             
-            // Chức danh
             $jobTitleName = $jobTitle ? ($jobTitle->jobtitlename ?? '-') : '-';
             $output .= "<Cell ss:StyleID=\"Cell\"><Data ss:Type=\"String\">" . htmlspecialchars($jobTitleName, ENT_XML1, 'UTF-8') . "</Data></Cell>\n";
             
-            // Hệ số lương ngạch bậc
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['teacher_coefficient'], 4, '.', '') . "</Data></Cell>\n";
             
-            // P/C chức vụ
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['phu_cap_chuc_vu'], 4, '.', '') . "</Data></Cell>\n";
             
-            // P/C vượt khung (%)
             $output .= "<Cell ss:StyleID=\"Cell\"><Data ss:Type=\"String\">-</Data></Cell>\n";
             
-            // P/C vượt khung (HS)
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['phu_cap_vuot_khung'], 4, '.', '') . "</Data></Cell>\n";
             
-            // P/C trách nhiệm
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['phu_cap_trach_nhiem'], 4, '.', '') . "</Data></Cell>\n";
             
-            // P/C độc hại
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['phu_cap_doc_hai'], 4, '.', '') . "</Data></Cell>\n";
             
-            // P/C ưu đãi (%)
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['phu_cap_uu_dai_percentage'], 2, '.', '') . "</Data></Cell>\n";
             
-            // P/C ưu đãi (HS)
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['he_so_phu_cap'], 4, '.', '') . "</Data></Cell>\n";
             
-            // P/C thâm niên (%)
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['phu_cap_tham_nien_percentage'], 2, '.', '') . "</Data></Cell>\n";
             
-            // P/C thâm niên (HS)
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['he_so_phu_cap_tham_nien'], 4, '.', '') . "</Data></Cell>\n";
             
-            // Cộng hệ số
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['tong_he_so'], 4, '.', '') . "</Data></Cell>\n";
             
-            // Quỹ lương, phụ cấp 01 tháng
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['quy_luong_phu_cap'], 2, '.', '') . "</Data></Cell>\n";
             
-            // 8% BHXH
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['tien_tru_bhxh'], 2, '.', '') . "</Data></Cell>\n";
             
-            // 1.5% BHYT
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['tien_tru_bhyt'], 2, '.', '') . "</Data></Cell>\n";
             
-            // 1% BHTN
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['tien_tru_bhtn'], 2, '.', '') . "</Data></Cell>\n";
             
-            // Số tiền thực lĩnh 1 tháng
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['thuc_linh'], 2, '.', '') . "</Data></Cell>\n";
             
-            // 17% BHXH
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['ngan_sach_bhxh'], 2, '.', '') . "</Data></Cell>\n";
             
-            // 0.5% BHTN
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['ngan_sach_bhtn_tu_ns'], 2, '.', '') . "</Data></Cell>\n";
             
-            // 3% BHYT
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['ngan_sach_bhyt'], 2, '.', '') . "</Data></Cell>\n";
             
-            // 1% BHTN
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['ngan_sach_bhtn'], 2, '.', '') . "</Data></Cell>\n";
             
-            // Tổng cộng 1 tháng
             $output .= "<Cell ss:StyleID=\"Number\"><Data ss:Type=\"Number\">" . number_format($calcDetails['tong_chi_phi'], 2, '.', '') . "</Data></Cell>\n";
             
-            // Ghi chú
             $note = $detail->note ? $detail->note : '-';
             $output .= "<Cell ss:StyleID=\"Cell\"><Data ss:Type=\"String\">" . htmlspecialchars($note, ENT_XML1, 'UTF-8') . "</Data></Cell>\n";
             
@@ -809,12 +703,8 @@ class PayrollRunDetailController extends Controller
         return $output;
     }
 
-    /**
-     * Xuất file Excel bảng lương chi tiết
-     */
     public function export(Request $request)
     {
-        // Kiểm tra: Bắt buộc phải chọn tháng lương
         if (!$request->filled('search_payrollrunid')) {
             return redirect()->route('admin.payrollrundetail.index')
                 ->with('error', 'Vui lòng chọn tháng lương cần xuất!');
@@ -822,12 +712,10 @@ class PayrollRunDetailController extends Controller
 
         $query = PayrollRunDetail::with(['payrollRun.unit', 'teacher.jobTitle']);
 
-        // Áp dụng các bộ lọc tương tự như index
         if ($request->filled('search_id')) {
             $query->where('detailid', $request->search_id);
         }
 
-        // Bắt buộc lọc theo tháng lương đã chọn
         $query->where('payrollrunid', $request->search_payrollrunid);
 
         if ($request->filled('search_teacherid')) {
@@ -843,7 +731,6 @@ class PayrollRunDetailController extends Controller
 
         $payrollRunDetails = $query->orderBy('detailid', 'desc')->get();
 
-        // Lấy thông tin bảng lương để làm tiêu đề
         $payrollRun = PayrollRun::with('unit')->find($request->search_payrollrunid);
         $payrollRunTitle = 'Chi tiết tính toán lương';
         if ($payrollRun) {
@@ -861,17 +748,14 @@ class PayrollRunDetailController extends Controller
             $payrollRunTitle = 'Chi tiết tính toán lương: ' . $unitName . ' - ' . $formattedPeriod;
         }
 
-        // Tạo tên file
         $filename = 'Chi_tiet_tinh_toan_luong_' . date('YmdHis') . '.xls';
 
-        // Headers cho Excel
         $headers = [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
             'Cache-Control' => 'max-age=0',
         ];
 
-        // Tạo nội dung Excel (XML format)
         $output = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
         $output .= "<?mso-application progid=\"Excel.Sheet\"?>\n";
         $output .= "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"\n";
@@ -885,7 +769,6 @@ class PayrollRunDetailController extends Controller
         $output .= "</DocumentProperties>\n";
         $output .= "<Styles>\n";
         
-        // Header style với border
         $output .= "<Style ss:ID=\"Header\">\n";
         $output .= "<Font ss:Bold=\"1\" ss:Size=\"11\" ss:Color=\"#FFFFFF\"/>\n";
         $output .= "<Interior ss:Color=\"#4472C4\" ss:Pattern=\"Solid\"/>\n";
@@ -898,7 +781,6 @@ class PayrollRunDetailController extends Controller
         $output .= "</Borders>\n";
         $output .= "</Style>\n";
         
-        // Number style với border và format số tiền
         $output .= "<Style ss:ID=\"Number\">\n";
         $output .= "<NumberFormat ss:Format=\"#,##0.00\"/>\n";
         $output .= "<Alignment ss:Horizontal=\"Right\" ss:Vertical=\"Center\"/>\n";
@@ -910,7 +792,6 @@ class PayrollRunDetailController extends Controller
         $output .= "</Borders>\n";
         $output .= "</Style>\n";
         
-        // Cell style với border cho text
         $output .= "<Style ss:ID=\"Cell\">\n";
         $output .= "<Alignment ss:Vertical=\"Center\" ss:WrapText=\"1\"/>\n";
         $output .= "<Borders>\n";
@@ -921,7 +802,6 @@ class PayrollRunDetailController extends Controller
         $output .= "</Borders>\n";
         $output .= "</Style>\n";
         
-        // STT style với border và căn giữa
         $output .= "<Style ss:ID=\"STT\">\n";
         $output .= "<Alignment ss:Horizontal=\"Center\" ss:Vertical=\"Center\"/>\n";
         $output .= "<Borders>\n";
@@ -932,7 +812,6 @@ class PayrollRunDetailController extends Controller
         $output .= "</Borders>\n";
         $output .= "</Style>\n";
         
-        // Title style cho tiêu đề bảng lương
         $output .= "<Style ss:ID=\"Title\">\n";
         $output .= "<Font ss:Bold=\"1\" ss:Size=\"14\" ss:Color=\"#000000\"/>\n";
         $output .= "<Alignment ss:Horizontal=\"Center\" ss:Vertical=\"Center\" ss:WrapText=\"1\"/>\n";
@@ -946,12 +825,10 @@ class PayrollRunDetailController extends Controller
         
         $output .= "</Styles>\n";
         
-        // Sheet: Chi tiết tính toán với cách tính
         $output .= $this->generateDetailedCalculationSheet($payrollRunDetails, $payrollRun, $payrollRunTitle);
         
         $output .= "</Workbook>";
 
-        // Thêm BOM UTF-8 để Excel hiển thị tiếng Việt đúng
         $output = "\xEF\xBB\xBF" . $output;
 
         return response($output, 200, $headers);

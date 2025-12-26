@@ -17,41 +17,32 @@ use Illuminate\Support\Str;
 
 class SystemUserController extends Controller
 {
-    /**
-     * Hiển thị danh sách người dùng hệ thống
-     */
     public function index(Request $request)
     {
         $query = SystemUser::query()->with(['teacher', 'role']);
 
-        // Tìm kiếm theo username
         if ($request->filled('search_username')) {
             $query->where('username', 'like', '%' . $request->search_username . '%');
         }
 
-        // Tìm kiếm theo email
         if ($request->filled('search_email')) {
             $query->where('email', 'like', '%' . $request->search_email . '%');
         }
 
-        // Tìm kiếm theo họ tên
         if ($request->filled('search_fullname')) {
             $query->where('fullname', 'like', '%' . $request->search_fullname . '%');
         }
 
-        // Tìm kiếm theo trạng thái
         if ($request->filled('search_status')) {
             $query->where('status', $request->search_status);
         }
 
-        // Tìm kiếm theo vai trò
         if ($request->filled('search_roleid')) {
             $query->where('roleid', $request->search_roleid);
         }
 
         $users = $query->orderBy('userid', 'asc')->get();
 
-        // Giáo viên dùng cho combobox tạo mới: chỉ giáo viên chưa có tài khoản
         $teachersWithAccount = SystemUser::whereNotNull('teacherid')->pluck('teacherid')->toArray();
         $teachers = Teacher::query()
             ->when(!empty($teachersWithAccount), function ($q) use ($teachersWithAccount) {
@@ -60,7 +51,6 @@ class SystemUserController extends Controller
             ->orderBy('fullname')
             ->get();
 
-        // Giáo viên cho form sửa (có thể hiển thị tất cả để giữ giá trị hiện tại)
         $allTeachers = Teacher::orderBy('fullname')->get();
 
         $roles = Role::orderBy('rolename')->get();
@@ -68,9 +58,6 @@ class SystemUserController extends Controller
         return view('admin.systemusers.index', compact('users', 'teachers', 'allTeachers', 'roles'));
     }
 
-    /**
-     * Validation rules cho system user
-     */
     private function getValidationRules($ignoreId = null): array
     {
         $rules = [
@@ -114,14 +101,12 @@ class SystemUserController extends Controller
             ],
         ];
 
-        // Unique username
         if ($ignoreId) {
             $rules['username'][] = Rule::unique('systemuser', 'username')->ignore($ignoreId, 'userid');
         } else {
             $rules['username'][] = Rule::unique('systemuser', 'username');
         }
 
-        // Unique email (nếu có nhập)
         if ($ignoreId) {
             $rules['email'][] = Rule::unique('systemuser', 'email')
                 ->ignore($ignoreId, 'userid');
@@ -129,7 +114,6 @@ class SystemUserController extends Controller
             $rules['email'][] = Rule::unique('systemuser', 'email');
         }
 
-        // Giáo viên chỉ được gán cho 1 tài khoản
         $rules['teacherid'][] = function ($attribute, $value, $fail) use ($ignoreId) {
             if ($value) {
                 $query = SystemUser::where('teacherid', $value);
@@ -145,23 +129,17 @@ class SystemUserController extends Controller
         return $rules;
     }
 
-    /**
-     * Sinh tên đăng nhập duy nhất từ email hoặc chuỗi gốc
-     */
     private function generateUniqueUsernameFromEmail(?string $email): string
     {
         $email = trim((string) $email);
 
-        // Lấy phần trước dấu @, nếu không có thì dùng luôn email/gốc
         $localPart = $email !== '' ? (strstr($email, '@', true) ?: $email) : 'user';
 
-        // Chỉ giữ lại chữ, số, dấu chấm và gạch dưới
         $base = preg_replace('/[^A-Za-z0-9_.]/', '_', $localPart);
         if ($base === '' || $base === null) {
             $base = 'user';
         }
 
-        // Cắt độ dài tối đa 50 để còn chỗ cho hậu tố số
         $base = substr($base, 0, 50);
 
         $username = $base;
@@ -178,9 +156,6 @@ class SystemUserController extends Controller
         return $username;
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -210,9 +185,6 @@ class SystemUserController extends Controller
         ];
     }
 
-    /**
-     * API kiểm tra email và gợi ý tên đăng nhập
-     */
     public function checkEmail(Request $request)
     {
         $data = $request->validate([
@@ -221,7 +193,6 @@ class SystemUserController extends Controller
 
         $email = trim($data['email']);
 
-        // Kiểm tra email đã tồn tại chưa
         if (SystemUser::where('email', $email)->exists()) {
             return response()->json([
                 'ok' => false,
@@ -229,7 +200,6 @@ class SystemUserController extends Controller
             ], 422);
         }
 
-        // Sinh username duy nhất từ email
         $username = $this->generateUniqueUsernameFromEmail($email);
 
         return response()->json([
@@ -238,18 +208,12 @@ class SystemUserController extends Controller
         ]);
     }
 
-    /**
-     * Tạo người dùng mới
-     */
     public function store(Request $request)
     {
-        // Chuẩn hóa input cơ bản
         $email    = $request->email ? trim($request->email) : null;
         $fullname = $request->fullname ? trim($request->fullname) : null;
         $username = $request->username ? trim($request->username) : null;
 
-        // Nếu username đang trống (ví dụ JS không chạy hoặc người dùng không nhập)
-        // thì tự sinh từ email; nếu không có email thì sinh từ "user"
         if (empty($username)) {
             $username = $this->generateUniqueUsernameFromEmail($email);
         }
@@ -268,14 +232,11 @@ class SystemUserController extends Controller
 
         $validated = $validator->validate();
 
-        // Xử lý upload avatar (nếu có)
         if ($request->hasFile('avatar')) {
             $path = $request->file('avatar')->store('avatars', 'public');
             $validated['avatar'] = $path;
         }
 
-        // Nếu vai trò là Giáo viên hoặc Kế toán và có chọn giáo viên,
-        // tự động lấy họ tên giáo viên gán vào cột fullname
         if (!empty($validated['roleid']) && !empty($validated['teacherid'])) {
             $role = Role::find($validated['roleid']);
             $teacher = Teacher::find($validated['teacherid']);
@@ -288,24 +249,19 @@ class SystemUserController extends Controller
             }
         }
 
-        // Sinh mật khẩu ngẫu nhiên
         $plainPassword = Str::random(10);
         $validated['passwordhash'] = Hash::make($plainPassword);
 
-        // Trạng thái mặc định nếu không truyền
         if (empty($validated['status'])) {
             $validated['status'] = 'active';
         }
 
         $user = SystemUser::create($validated);
 
-        // Gửi email thông báo tài khoản (nếu có email)
         if (!empty($user->email)) {
             try {
                 Mail::to($user->email)->send(new SystemUserCredentialsMail($user, $plainPassword));
             } catch (\Throwable $e) {
-                // Không làm gián đoạn luồng chính, chỉ ghi log nếu cần
-                // logger()->error('Gửi email tạo tài khoản thất bại: ' . $e->getMessage());
             }
         }
 
@@ -313,15 +269,10 @@ class SystemUserController extends Controller
             ->with('success', 'Tạo tài khoản người dùng hệ thống thành công! Mật khẩu đã được gửi tới email (nếu có).');
     }
 
-    /**
-     * Cập nhật người dùng
-     */
     public function update(Request $request, $id)
     {
         $user = SystemUser::findOrFail($id);
 
-        // Chỉ cho phép sửa email, vai trò và trạng thái trên form.
-        // Các trường còn lại (username, fullname, teacherid) được giữ nguyên giá trị hiện tại.
         $request->merge([
             'username'  => $user->username,
             'email'     => $request->email ? trim($request->email) : null,
@@ -337,9 +288,7 @@ class SystemUserController extends Controller
 
         $validated = $validator->validate();
 
-        // Xử lý upload avatar (nếu có)
         if ($request->hasFile('avatar')) {
-            // Nếu muốn, có thể xóa ảnh cũ:
             if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
                 Storage::disk('public')->delete($user->avatar);
             }
@@ -348,8 +297,6 @@ class SystemUserController extends Controller
             $validated['avatar'] = $path;
         }
 
-        // Nếu vai trò là Giáo viên hoặc Kế toán và có chọn giáo viên,
-        // tự động lấy họ tên giáo viên gán vào cột fullname
         if (!empty($validated['roleid']) && !empty($validated['teacherid'])) {
             $role = Role::find($validated['roleid']);
             $teacher = Teacher::find($validated['teacherid']);
@@ -362,7 +309,6 @@ class SystemUserController extends Controller
             }
         }
 
-        // Không đổi mật khẩu trong form chỉnh sửa (chỉ cập nhật thông tin khác)
         unset($validated['passwordhash']);
 
         $user->update($validated);
@@ -371,14 +317,9 @@ class SystemUserController extends Controller
             ->with('success', 'Cập nhật tài khoản người dùng hệ thống thành công!');
     }
 
-    /**
-     * Xóa người dùng
-     */
     public function destroy($id)
     {
         $user = SystemUser::findOrFail($id);
-
-        // TODO: Kiểm tra quan hệ với các bảng khác trước khi xóa (nếu có)
 
         $user->delete();
 

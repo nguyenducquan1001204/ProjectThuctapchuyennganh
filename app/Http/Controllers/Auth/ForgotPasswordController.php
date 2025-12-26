@@ -14,18 +14,10 @@ use Illuminate\Support\Str;
 
 class ForgotPasswordController extends Controller
 {
-    /**
-     * Hiển thị form quên mật khẩu.
-     * (Hiện tại chỉ là giao diện, chưa xử lý gửi email reset.)
-     */
     public function showForgotForm()
     {
         return view('auth.forgot-password');
     }
-
-    /**
-     * Gửi mã xác nhận về email (AJAX).
-     */
     public function sendResetCode(Request $request)
     {
         $data = $request->validate(
@@ -50,7 +42,6 @@ class ForgotPasswordController extends Controller
 
         $code = (string) random_int(100000, 999999);
 
-        // Lưu mã xác nhận trong cache (không cần bảng / cột mới)
         $cacheKey = 'password_reset:' . $email;
         Cache::put($cacheKey, Hash::make($code), now()->addMinutes(15));
 
@@ -69,9 +60,6 @@ class ForgotPasswordController extends Controller
         ]);
     }
 
-    /**
-     * Xác thực mã và đặt lại mật khẩu mới (AJAX).
-     */
     public function verifyResetCode(Request $request)
     {
         $data = $request->validate(
@@ -115,7 +103,6 @@ class ForgotPasswordController extends Controller
             ], 422);
         }
 
-        // Đánh dấu đã xác thực mã, cho phép bước tiếp theo đặt lại mật khẩu
         Cache::put('password_reset_verified:' . $email, true, now()->addMinutes(15));
 
         return response()->json([
@@ -124,9 +111,7 @@ class ForgotPasswordController extends Controller
         ]);
     }
 
-    /**
-     * Đặt lại mật khẩu sau khi đã xác thực mã (AJAX).
-     */
+
     public function resetPassword(Request $request)
     {
         $data = $request->validate(
@@ -159,11 +144,9 @@ class ForgotPasswordController extends Controller
             ], 422);
         }
 
-        // Đặt lại mật khẩu theo mật khẩu người dùng nhập
         $user->passwordhash = Hash::make($data['password']);
         $user->save();
 
-        // Xóa trạng thái xác thực và mã reset
         Cache::forget('password_reset:' . $email);
         Cache::forget('password_reset_verified:' . $email);
 

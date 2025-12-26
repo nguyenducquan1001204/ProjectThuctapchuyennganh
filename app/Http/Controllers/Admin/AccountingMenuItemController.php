@@ -9,36 +9,28 @@ use Illuminate\Support\Facades\Validator;
 
 class AccountingMenuItemController extends Controller
 {
-    /**
-     * Hiển thị danh sách menu items
-     */
     public function index(Request $request)
     {
         $query = AccountingMenuItem::query();
 
-        // Tìm kiếm theo ID
         if ($request->filled('search_id')) {
             $query->where('id', $request->search_id);
         }
 
-        // Tìm kiếm theo tiêu đề
         if ($request->filled('search_title')) {
             $query->where('title', 'like', '%' . $request->search_title . '%');
         }
 
-        // Tìm kiếm theo route name
         if ($request->filled('search_routename')) {
             $query->where('routeName', 'like', '%' . $request->search_routename . '%');
         }
 
-        // Lọc theo trạng thái
         if ($request->filled('search_isactive')) {
             $query->where('isActive', $request->search_isactive);
         }
 
         $menuItems = $query->with('parent')->orderBy('parentId', 'asc')->orderBy('orderIndex', 'asc')->get();
         
-        // Lấy danh sách menu items để làm parent options (chỉ menu cha - không có parentId)
         $parentOptions = AccountingMenuItem::whereNull('parentId')
             ->orderBy('orderIndex', 'asc')
             ->get();
@@ -46,9 +38,6 @@ class AccountingMenuItemController extends Controller
         return view('admin.accountingmenuitems.index', compact('menuItems', 'parentOptions'));
     }
 
-    /**
-     * Validation rules
-     */
     private function getValidationRules($ignoreId = null): array
     {
         $rules = [
@@ -63,9 +52,6 @@ class AccountingMenuItemController extends Controller
         return $rules;
     }
 
-    /**
-     * Validation messages
-     */
     private function getValidationMessages(): array
     {
         return [
@@ -80,9 +66,6 @@ class AccountingMenuItemController extends Controller
         ];
     }
 
-    /**
-     * Lưu menu item mới
-     */
     public function store(Request $request)
     {
         $validator = Validator::make(
@@ -93,15 +76,12 @@ class AccountingMenuItemController extends Controller
 
         $validated = $validator->validate();
 
-        // Xử lý parentId: null nếu là chuỗi rỗng
         if (empty($validated['parentId'])) {
             $validated['parentId'] = null;
         }
 
-        // Xử lý isActive
         $validated['isActive'] = filter_var($validated['isActive'], FILTER_VALIDATE_BOOLEAN);
 
-        // Chỉ lưu các trường có trong bảng
         $dataToSave = [
             'title' => $validated['title'],
             'parentId' => $validated['parentId'],
@@ -117,9 +97,6 @@ class AccountingMenuItemController extends Controller
             ->with('success', 'Thêm menu kế toán thành công!');
     }
 
-    /**
-     * Cập nhật menu item
-     */
     public function update(Request $request, $id)
     {
         $menuItem = AccountingMenuItem::findOrFail($id);
@@ -132,11 +109,9 @@ class AccountingMenuItemController extends Controller
 
         $validated = $validator->validate();
 
-        // Xử lý parentId: null nếu là chuỗi rỗng, và không được chọn chính nó
         if (empty($validated['parentId'])) {
             $validated['parentId'] = null;
         } else {
-            // Kiểm tra không được chọn chính nó làm parent
             if ($validated['parentId'] == $id) {
                 return redirect()->back()
                     ->withErrors(['parentId' => 'Menu không thể chọn chính nó làm menu cha'])
@@ -144,10 +119,8 @@ class AccountingMenuItemController extends Controller
             }
         }
 
-        // Xử lý isActive
         $validated['isActive'] = filter_var($validated['isActive'], FILTER_VALIDATE_BOOLEAN);
 
-        // Chỉ cập nhật các trường có trong bảng
         $dataToUpdate = [
             'title' => $validated['title'],
             'parentId' => $validated['parentId'],
@@ -163,14 +136,10 @@ class AccountingMenuItemController extends Controller
             ->with('success', 'Cập nhật menu kế toán thành công!');
     }
 
-    /**
-     * Xóa menu item
-     */
     public function destroy($id)
     {
         $menuItem = AccountingMenuItem::findOrFail($id);
 
-        // Kiểm tra nếu có menu con thì không cho xóa
         $hasChildren = AccountingMenuItem::where('parentId', $id)->exists();
         if ($hasChildren) {
             return redirect()->route('admin.accountingmenuitem.index')
