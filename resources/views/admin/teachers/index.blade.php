@@ -31,7 +31,7 @@
 @endif
 
 <!-- Error Notification Modal -->
-@if ($errors->any())
+@if ($errors->any() || session('error'))
     <div class="modal fade notification-modal modal-error" id="errorNotificationModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -49,6 +49,9 @@
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
+                        @if(session('error'))
+                            <li>{{ session('error') }}</li>
+                        @endif
                     </ul>
                 </div>
                 <div class="modal-footer justify-content-center">

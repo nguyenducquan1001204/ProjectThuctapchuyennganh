@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\BudgetSpendingUnit;
+use App\Models\Teacher;
+use App\Models\PayrollRun;
+use App\Models\BaseSalary;
+use App\Models\PayrollComponentUnitConfig;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
@@ -298,7 +302,33 @@ class BudgetSpendingUnitController extends Controller
     {
         $unit = BudgetSpendingUnit::findOrFail($id);
         
-        // TODO: Kiểm tra quan hệ với các bảng khác trước khi xóa
+        $errors = [];
+        
+        $teacherCount = Teacher::where('unitid', $id)->count();
+        if ($teacherCount > 0) {
+            $errors[] = "Có {$teacherCount} giáo viên đang thuộc đơn vị này";
+        }
+        
+        $payrollRunCount = PayrollRun::where('unitid', $id)->count();
+        if ($payrollRunCount > 0) {
+            $errors[] = "Có {$payrollRunCount} kỳ lương đang sử dụng đơn vị này";
+        }
+        
+        $baseSalaryCount = BaseSalary::where('unitid', $id)->count();
+        if ($baseSalaryCount > 0) {
+            $errors[] = "Có {$baseSalaryCount} mức lương cơ bản đang thuộc đơn vị này";
+        }
+        
+        $unitConfigCount = PayrollComponentUnitConfig::where('unitid', $id)->count();
+        if ($unitConfigCount > 0) {
+            $errors[] = "Có {$unitConfigCount} cấu hình thành phần lương đang thuộc đơn vị này";
+        }
+        
+        if (!empty($errors)) {
+            $errorMessage = 'Không thể xóa đơn vị vì: ' . implode(', ', $errors);
+            return redirect()->route('accounting.budgetspendingunit.index')
+                ->with('error', $errorMessage);
+        }
         
         $unit->delete();
 

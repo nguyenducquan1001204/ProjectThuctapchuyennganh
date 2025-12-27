@@ -7,6 +7,11 @@ use App\Models\Teacher;
 use App\Models\JobTitle;
 use App\Models\BudgetSpendingUnit;
 use App\Models\TeacherJobTitleHistory;
+use App\Models\PayrollRunDetail;
+use App\Models\EmploymentContract;
+use App\Models\TeacherPayrollComponent;
+use App\Models\SalaryIncreaseDecision;
+use App\Models\SystemUser;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
@@ -327,7 +332,43 @@ class TeacherController extends Controller
     {
         $teacher = Teacher::findOrFail($id);
         
-        // TODO: Kiểm tra quan hệ với các bảng khác trước khi xóa
+        $errors = [];
+        
+        $payrollRunDetailCount = PayrollRunDetail::where('teacherid', $id)->count();
+        if ($payrollRunDetailCount > 0) {
+            $errors[] = "Có {$payrollRunDetailCount} chi tiết kỳ lương đang tham chiếu đến giáo viên này";
+        }
+        
+        $employmentContractCount = EmploymentContract::where('teacherid', $id)->count();
+        if ($employmentContractCount > 0) {
+            $errors[] = "Có {$employmentContractCount} hợp đồng lao động đang thuộc giáo viên này";
+        }
+        
+        $teacherPayrollComponentCount = TeacherPayrollComponent::where('teacherid', $id)->count();
+        if ($teacherPayrollComponentCount > 0) {
+            $errors[] = "Có {$teacherPayrollComponentCount} thành phần lương đang thuộc giáo viên này";
+        }
+        
+        $teacherJobTitleHistoryCount = TeacherJobTitleHistory::where('teacherid', $id)->count();
+        if ($teacherJobTitleHistoryCount > 0) {
+            $errors[] = "Có {$teacherJobTitleHistoryCount} lịch sử chức danh đang thuộc giáo viên này";
+        }
+        
+        $salaryIncreaseDecisionCount = SalaryIncreaseDecision::where('teacherid', $id)->count();
+        if ($salaryIncreaseDecisionCount > 0) {
+            $errors[] = "Có {$salaryIncreaseDecisionCount} quyết định tăng lương đang thuộc giáo viên này";
+        }
+        
+        $systemUserCount = SystemUser::where('teacherid', $id)->count();
+        if ($systemUserCount > 0) {
+            $errors[] = "Có {$systemUserCount} tài khoản hệ thống đang liên kết với giáo viên này";
+        }
+        
+        if (!empty($errors)) {
+            $errorMessage = 'Không thể xóa giáo viên vì: ' . implode(', ', $errors);
+            return redirect()->route('accounting.teacher.index')
+                ->with('error', $errorMessage);
+        }
         
         $teacher->delete();
 
